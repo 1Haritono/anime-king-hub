@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="burgundyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#800A28"/>
+      <stop offset="50%" stop-color="#5C061C"/>
+      <stop offset="100%" stop-color="#36020E"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE57F"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#AA820A"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#D4AF37" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background Burgundy Rounded Square -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="url(#burgundyGrad)" stroke="#800A28" stroke-width="4"/>
+  <rect x="24" y="24" width="464" height="464" rx="88" ry="88" fill="none" stroke="url(#goldGrad)" stroke-width="3" opacity="0.4"/>
+
+  <!-- Golden Crown -->
+  <path d="M156 220 L196 160 L256 200 L316 160 L356 220 L336 240 L176 240 Z" fill="url(#goldGrad)" filter="url(#glow)"/>
+  <circle cx="196" cy="150" r="10" fill="url(#goldGrad)"/>
+  <circle cx="256" cy="140" r="12" fill="url(#goldGrad)"/>
+  <circle cx="316" cy="150" r="10" fill="url(#goldGrad)"/>
+
+  <!-- Monogram Letters "AH" -->
+  <text x="256" y="380" font-family="'Inter', 'Montserrat', 'Arial Black', sans-serif" font-weight="900" font-size="140" fill="#FFFFFF" text-anchor="middle" letter-spacing="6" filter="url(#glow)">AH</text>
+</svg>
