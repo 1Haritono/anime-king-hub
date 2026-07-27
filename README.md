@@ -1,16 +1,45 @@
-# React + Vite
+# Anime King Hub — AMOLED Desktop App (Hub Edition)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **Примечание к временной публикации**: Данный репозиторий содержит полную сборку приложения со всеми реализованными функциями (Разделы A–D) для финальной проверки функционала и внешнего вида. Позже репозиторий будет пересоздан с поэтапной версионированной историей коммитов.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🎨 Возможности и реализованный функционал
 
-## React Compiler
+### 1. Раздел А — Дизайн-система & Визуал (AMOLED)
+- **AMOLED-фон (`#000000`)** для максимального контраста на OLED/AMOLED дисплеях.
+- Акцентные цвета: бордовый (`#5C061C`) для активных элементов и рамок, золотой (`#D4AF37`) для рейтингов и короны.
+- Компактный верхний тулбар (~36px) с управлением окном и быстрыми иконками.
+- Кастомные модальные окна и редизайн карточки тайтла (рейтинг Кинопоиска, возрастной ценз, галерея скриншотов).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 2. Раздел B — Источники Данных
+- Прямая интеграция **Shikimori API** (живой поиск, описания, обложки с оригинального CDN).
+- Импорт списков просмотра и истории из **Anixart API**.
 
-## Expanding the Oxlint configuration
+### 3. Раздел C — Плеер mpv JSON IPC
+- Воспроизведение через внешний процесс `mpv` под капотом с обменом командами по IPC.
+- Выбор качества (1080p, 720p, 480p) и скоростей до `3.0x`.
+- Горячие клавиши (`Space`, `←/→`, `S`, `A`) и пресеты **Anime4K GLSL** (Mode A/B/C, Fast/HQ).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 4. Раздел D — Watch Party (Совместный просмотр)
+- Создание комнат с 6-значным ПИН-кодом (например, `B7M2X9`).
+- Контекстное меню у списка друзей по **ПКМ** («Пригласить на трансляцию»).
+- Текстовый чат комнаты и сервер синхронизации на Node.js / `ws` (`server/watchPartyWsServer.js`).
+
+---
+
+## 🛠 Запуск и разработка
+
+```bash
+# Установка зависимостей
+npm install
+
+# Запуск в режиме разработки
+npm run dev
+
+# Сборка производственного бандла
+npm run build
+
+# Запуск WebSocket-сервера для Watch Party
+node server/watchPartyWsServer.js
+```
