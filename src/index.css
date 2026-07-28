@@ -5,6 +5,7 @@
   --bg-surface: #0D0D0D;
   --bg-card: #141414;
   --bg-card-hover: #1F1F1F;
+  --header-bg: #050505;
   
   --primary-burgundy: #5C061C;
   --primary-burgundy-light: #800A28;
@@ -22,6 +23,40 @@
   --border-gold: rgba(212, 175, 55, 0.4);
 
   --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* A7: Real Theme CSS Custom Properties */
+[data-theme="amoled"] {
+  --bg-amoled: #000000;
+  --bg-surface: #0A0A0A;
+  --bg-card: #111111;
+  --bg-card-hover: #1A1A1A;
+  --header-bg: #050505;
+  --text-primary: #FFFFFF;
+  --text-secondary: #A0A0A0;
+  --text-muted: #666666;
+}
+
+[data-theme="dark"] {
+  --bg-amoled: #121212;
+  --bg-surface: #1E1E1E;
+  --bg-card: #252525;
+  --bg-card-hover: #2D2D2D;
+  --header-bg: #181818;
+  --text-primary: #EAEAEA;
+  --text-secondary: #B0B0B0;
+  --text-muted: #777777;
+}
+
+[data-theme="light"] {
+  --bg-amoled: #F5F5F7;
+  --bg-surface: #FFFFFF;
+  --bg-card: #EFEFF4;
+  --bg-card-hover: #E5E5EA;
+  --header-bg: #E0E0E6;
+  --text-primary: #1C1C1E;
+  --text-secondary: #55555B;
+  --text-muted: #8E8E93;
 }
 
 * {

@@ -14,6 +14,20 @@ import { MpvPlayerBridge } from './mpvBridge';
 import { fetchShikimoriAnimeList, fetchShikimoriAnimeDetails } from './shikimoriApi';
 
 export default function App() {
+  const [themeMode, setThemeMode] = useState(() => {
+    return localStorage.getItem('animeking_theme') || 'amoled';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('animeking_theme', themeMode);
+    let effectiveTheme = themeMode;
+    if (themeMode === 'auto') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      effectiveTheme = prefersDark ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', effectiveTheme);
+  }, [themeMode]);
+
   const [activeNav, setActiveNav] = useState('home');
   const [activeTab, setActiveTab] = useState('Аниме');
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,7 +41,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // A10: Update State
-  const CURRENT_APP_VERSION = 'v1.0.0';
+  const CURRENT_APP_VERSION = 'v1.3.0';
   const [hasUpdate, setHasUpdate] = useState(false);
   const [latestReleaseUrl, setLatestReleaseUrl] = useState('https://github.com');
 
@@ -302,7 +316,7 @@ export default function App() {
               onPlay={() => setIsPlayerOpen(true)}
             />
           ) : activeNav === 'settings' ? (
-            <SettingsView isMpvConnected={true} />
+            <SettingsView isMpvConnected={true} themeMode={themeMode} setThemeMode={setThemeMode} />
           ) : activeNav === 'profile' ? (
             <ProfileView onPlaySample={(item) => handleAnimeClick(item)} />
           ) : activeNav === 'schedule' ? (

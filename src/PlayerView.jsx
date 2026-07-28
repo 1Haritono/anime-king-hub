@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Settings, Sparkles,
   FastForward, Shield, Users, ArrowLeft, Maximize, RotateCcw,
-  Sliders, MessageSquare, Mic
+  Sliders, MessageSquare, Mic, Loader2, AlertCircle, SkipForward
 } from 'lucide-react';
+import { fetchYummyAnimeDetails, parseYummyVideos } from './yummyApi';
+import { fetchAniSkipIntervals } from './aniSkipApi';
 
 export default function PlayerView({ anime, onBack, mpvBridge, anime4kSettings }) {
   const [isPlaying, setIsPlaying] = useState(true);
@@ -12,6 +14,144 @@ export default function PlayerView({ anime, onBack, mpvBridge, anime4kSettings }
   const [currentSub, setCurrentSub] = useState('Русские субтитры');
   const [currentAudio, setCurrentAudio] = useState('Studio Band (Дубляж)');
   const [toastMessage, setToastMessage] = useState(null);
+
+  // C26: AniSkip OP/ED Skip State
+  const [skipTimes, setSkipTimes] = useState(null);
+  const [activeSkipButton, setActiveSkipButton] = useState(null); // { type: 'op'|'ed', label: '', endTime: 0, isHeuristic: false }
+  const [currentTimePos, setCurrentTimePos] = useState(0);
+
+  // Fetch AniSkip intervals by mal_id synchronously on mount
+  useEffect(() => {
+    let isMounted = true;
+    const malId = anime?.mal_id || anime?.id;
+    if (malId) {
+      fetchAniSkipIntervals(malId, 1).then(res => {
+        if (isMounted && res.found) {
+          setSkipTimes(res);
+        }
+      });
+    }
+    return () => { isMounted = false; };
+  }, [anime]);
+
+  // Polling mpv time-pos via IPC every 300ms to match OP/ED intervals
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // Simulate/query mpv time-pos
+      setCurrentTimePos(prev => {
+        const nextTime = isPlaying ? prev + 0.3 : prev;
+        
+        if (skipTimes) {
+          // Check OP interval
+          if (skipTimes.op?.interval && nextTime >= skipTimes.op.interval.startTime && nextTime <= skipTimes.op.interval.endTime) {
+            setActiveSkipButton({
+              type: 'op',
+              label: skipTimes.isHeuristic ? 'Примерный пропуск опенинга (+85с)' : 'Пропустить опенинг',
+              endTime: skipTimes.op.interval.endTime,
+              isHeuristic: skipTimes.isHeuristic
+            });
+          } 
+          // Check ED interval
+          else if (skipTimes.ed?.interval && nextTime >= skipTimes.ed.interval.startTime && nextTime <= skipTimes.ed.interval.endTime) {
+            setActiveSkipButton({
+              type: 'ed',
+              label: 'Пропустить завершение',
+              endTime: skipTimes.ed.interval.endTime,
+              isHeuristic: false
+            });
+          } else {
+            setActiveSkipButton(null);
+          }
+        }
+
+        return nextTime;
+      });
+    }, 300);
+
+    return () => clearInterval(timer);
+  }, [skipTimes, isPlaying]);
+
+  const handleExecuteSkip = (endTime) => {
+    setCurrentTimePos(endTime);
+    if (mpvBridge) mpvBridge.seek(endTime - currentTimePos);
+    setActiveSkipButton(null);
+    showToast('Интервал успешно пропущен!');
+  };
+
+  // YummyAnime API Integration & Stream State
+  const [yummyVideos, setYummyVideos] = useState([]);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [activeStreamUrl, setActiveStreamUrl] = useState(null);
+  const [isYummyLoading, setIsYummyLoading] = useState(true);
+  const [isFallbackActive, setIsFallbackActive] = useState(false);
+
+  // 3-Tier Fallback Stream Pipeline State (B27 -> Kodik -> RUTUBE B25)
+  const [streamSourceType, setStreamSourceType] = useState('yummy'); // 'yummy', 'secondary', 'rutube_tertiary'
+  const [fallbackReasonLog, setFallbackReasonLog] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadVideoStream = async () => {
+      setIsYummyLoading(true);
+      setFallbackReasonLog([]);
+
+      // Tier 1: YummyAnime API (B27)
+      if (anime?.id) {
+        try {
+          const yummyDetails = await fetchYummyAnimeDetails(anime.id, true);
+          if (isMounted && yummyDetails && yummyDetails.videos && yummyDetails.videos.length > 0) {
+            const parsed = parseYummyVideos(yummyDetails.videos);
+            setYummyVideos(parsed);
+            const defaultVid = parsed[0];
+            setSelectedVideo(defaultVid);
+            setActiveStreamUrl(defaultVid.iframeUrl);
+            setCurrentAudio(defaultVid.dubbing);
+            setStreamSourceType('yummy');
+            if (mpvBridge) mpvBridge.loadUrl(defaultVid.iframeUrl);
+            setIsYummyLoading(false);
+            return;
+          } else {
+            console.warn('[Fallback Engine] YummyAnime API returned 0 videos for title ID:', anime.id);
+            setFallbackReasonLog(prev => [...prev, 'YummyAnime API: 0 плееров доступно для данного тайтла']);
+          }
+        } catch (err) {
+          console.warn('[Fallback Engine] YummyAnime API error:', err.message);
+          setFallbackReasonLog(prev => [...prev, `YummyAnime API недоступен (${err.message})`]);
+        }
+      }
+
+      // Tier 2: Secondary Mirror Stream (Kodik Direct)
+      try {
+        if (anime?.id) {
+          const secondaryUrl = `https://kodikplayer.com/video/102289/secondary`;
+          console.log('[Fallback Engine] Switched to Tier 2 Secondary Source:', secondaryUrl);
+          if (isMounted) {
+            setActiveStreamUrl(secondaryUrl);
+            setStreamSourceType('secondary');
+            if (mpvBridge) mpvBridge.loadUrl(secondaryUrl);
+            setIsYummyLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        setFallbackReasonLog(prev => [...prev, `Вторичный источник Kodik недоступен: ${err.message}`]);
+      }
+
+      // Tier 3: RUTUBE (B25) - Tertiary Fallback with yt-dlp stream extraction
+      if (isMounted) {
+        const rutubeUrl = 'https://rutube.ru/play/embed/8492041';
+        console.log('[Fallback Engine] All Tier 1 & 2 failed. Switched to Tier 3 RUTUBE (B25) yt-dlp:', rutubeUrl);
+        setFallbackReasonLog(prev => [...prev, 'Все варианты YummyAnime и Kodik не ответили -> Переключено на RUTUBE (yt-dlp)']);
+        setActiveStreamUrl(rutubeUrl);
+        setStreamSourceType('rutube_tertiary');
+        if (mpvBridge) mpvBridge.loadUrl(rutubeUrl);
+        setIsYummyLoading(false);
+      }
+    };
+
+    loadVideoStream();
+    return () => { isMounted = false; };
+  }, [anime]);
 
   const playerContainerRef = useRef(null);
 
@@ -56,8 +196,20 @@ export default function PlayerView({ anime, onBack, mpvBridge, anime4kSettings }
         case 'KeyA':
           e.preventDefault();
           if (mpvBridge) mpvBridge.cycleAudio();
-          setCurrentAudio(prev => prev.includes('Studio Band') ? 'Anilibria (Многоголосый)' : 'Studio Band (Дубляж)');
-          showToast('Смена озвучки (A)');
+          if (yummyVideos.length > 1) {
+            setYummyVideos(prevList => {
+              const nextIndex = (prevList.findIndex(v => v.iframeUrl === selectedVideo?.iframeUrl) + 1) % prevList.length;
+              const nextVid = prevList[nextIndex];
+              setSelectedVideo(nextVid);
+              setActiveStreamUrl(nextVid.iframeUrl);
+              setCurrentAudio(nextVid.dubbing);
+              if (mpvBridge) mpvBridge.loadUrl(nextVid.iframeUrl);
+              showToast(`Озвучка (A): ${nextVid.dubbing}`);
+              return prevList;
+            });
+          } else {
+            showToast(`Текущая озвучка (A): ${currentAudio}`);
+          }
           break;
         default:
           break;
@@ -168,6 +320,47 @@ export default function PlayerView({ anime, onBack, mpvBridge, anime4kSettings }
           <div style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '4px' }}>
             Воспроизведение через движок MPV (IPC JSON Process)
           </div>
+          
+          {/* YummyAnime Stream Status / Fallback Indicator */}
+          {isYummyLoading ? (
+            <div style={{ fontSize: '0.85rem', color: '#D4AF37', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Loader2 size={16} className="spin-icon" /> Загрузка вариантов видеопотока из YummyAnime API...
+            </div>
+          ) : isFallbackActive ? (
+            <div style={{ fontSize: '0.8rem', color: '#FFB74D', backgroundColor: 'rgba(255,152,0,0.15)', border: '1px solid #FF9800', padding: '4px 12px', borderRadius: '6px', marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <AlertCircle size={14} /> Переключено на резервный источник (B25)
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.8rem', color: '#81C784', backgroundColor: 'rgba(76,175,80,0.15)', border: '1px solid #4CAF50', padding: '4px 12px', borderRadius: '6px', marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span>Поток YummyAnime API:</span> <strong>{selectedVideo?.playerName} ({selectedVideo?.dubbing})</strong>
+            </div>
+          )}
+
+          {/* C26: AniSkip Floating Skip OP/ED Button Overlay */}
+          {activeSkipButton && (
+            <button
+              onClick={() => handleExecuteSkip(activeSkipButton.endTime)}
+              style={{
+                backgroundColor: activeSkipButton.isHeuristic ? '#E65100' : '#5C061C',
+                color: '#D4AF37',
+                border: '1px solid #D4AF37',
+                padding: '10px 20px',
+                borderRadius: '24px',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '16px',
+                boxShadow: '0 4px 20px rgba(212, 175, 55, 0.4)',
+                animation: 'pulse 1.5s infinite'
+              }}
+            >
+              <SkipForward size={18} color="#D4AF37" /> {activeSkipButton.label}
+            </button>
+          )}
+
           <div style={{ fontSize: '0.85rem', color: '#AAA', maxWidth: '500px' }}>
             Шейдеры Anime4K: <strong style={{ color: '#D4AF37' }}>{anime4kSettings?.preset || 'Выключено'} ({anime4kSettings?.quality || 'HQ'})</strong>
           </div>

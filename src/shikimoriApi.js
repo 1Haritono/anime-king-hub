@@ -82,6 +82,7 @@ export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20
 
     return data.map(item => ({
       id: item.id,
+      mal_id: item.myanimelist_id || item.id,
       title: item.russian || item.name,
       originalTitle: item.name,
       score: item.score || '8.5',
@@ -103,7 +104,7 @@ export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20
     if (search) {
       filtered = filtered.filter(item => item.title.toLowerCase().includes(search.toLowerCase()) || item.originalTitle.toLowerCase().includes(search.toLowerCase()));
     }
-    return filtered;
+    return filtered.map(item => ({ ...item, mal_id: item.id }));
   }
 }
 
@@ -116,6 +117,7 @@ export async function fetchShikimoriAnimeDetails(id) {
 
     return {
       id: item.id,
+      mal_id: item.myanimelist_id || item.id,
       title: item.russian || item.name,
       originalTitle: item.name,
       rating: item.score || '8.5',
@@ -133,6 +135,6 @@ export async function fetchShikimoriAnimeDetails(id) {
   } catch (err) {
     console.warn('Fallback details for ID:', id);
     const item = FALLBACK_SHIKIMORI_CATALOG.find(i => i.id === id) || FALLBACK_SHIKIMORI_CATALOG[0];
-    return item;
+    return { ...item, mal_id: item.id };
   }
 }

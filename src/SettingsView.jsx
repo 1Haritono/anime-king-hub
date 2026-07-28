@@ -5,11 +5,8 @@ import {
 } from 'lucide-react';
 import AnixartImportView from './AnixartImportView';
 
-export default function SettingsView({ isMpvConnected = false }) {
+export default function SettingsView({ isMpvConnected = false, themeMode = 'amoled', setThemeMode }) {
   const [activeSection, setActiveSection] = useState('appearance');
-
-  // A7: Appearance State
-  const [themeMode, setThemeMode] = useState('amoled');
 
   // A8: Connection State (Multiple endpoints + ping status + add new)
   const [endpoints, setEndpoints] = useState([
