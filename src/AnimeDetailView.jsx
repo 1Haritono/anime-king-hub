@@ -53,6 +53,13 @@ export default function AnimeDetailView({ anime, onBack, onPlay }) {
             <img
               src={anime.posterUrl || "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80"}
               alt={anime.title}
+              onError={(e) => {
+                const original = anime.posterUrl;
+                if (original && !e.target.dataset.proxied) {
+                  e.target.dataset.proxied = '1';
+                  e.target.src = `https://corsproxy.io/?${encodeURIComponent(original)}`;
+                }
+              }}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             {/* Age Rating Badge */}

@@ -1,12 +1,15 @@
 {
   "name": "anime-king-hub",
   "private": true,
-  "version": "1.3.0",
-  "type": "module",
+  "version": "1.3.1",
+  "description": "AMOLED Desktop App for Anime King Hub",
+  "author": "1Haritono",
+  "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:win": "vite build && echo Building Windows Installer v1.2.0...",
+    "build:win": "vite build && electron-builder --win nsis",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -19,15 +22,24 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "oxlint": "^1.71.0",
     "vite": "^8.1.1"
   },
   "build": {
     "appId": "com.animeking.hub",
     "productName": "Anime King Hub",
-    "icon": "public/icon.svg",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "index.js"
+    ],
     "win": {
-      "icon": "public/icon.svg"
+      "icon": "public/icon.svg",
+      "target": "nsis"
     }
   }
 }
