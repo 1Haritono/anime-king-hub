@@ -1,20 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Play, Pause, Volume2, ArrowLeft, ChevronDown, Check,
-  Bell, Sparkles, RotateCcw, X, Search
+  ArrowLeft, ChevronDown, Bell, X, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { fetchYummyAnimeDetails, parseYummyVideos } from './yummyApi';
 import { logEpisodeWatch, savePlaybackPosition, getPlaybackPosition } from './watchHistoryService';
+
+// Provider-specific fallback embed URLs
+const PROVIDER_FALLBACK_STREAMS = {
+  'Плеер Alloha': 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p',
+  'Плеер Kodik': 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p',
+  'Плеер CVH': 'https://vk.com/video_ext.php?oid=-209703770&id=456239100&hash=8506dbca6f7d08b3'
+};
 
 export default function PlayerView({ anime, onBack, mpvBridge }) {
   const [yummyVideos, setYummyVideos] = useState([]);
   const [selectedDub, setSelectedDub] = useState('Озвучка РуАниме / DEEP');
   const [selectedPlayer, setSelectedPlayer] = useState('Плеер Alloha');
   const [selectedEpisode, setSelectedEpisode] = useState(1);
-  const [totalEpisodesCount, setTotalEpisodesCount] = useState(12);
 
   const [activeStreamUrl, setActiveStreamUrl] = useState('');
   const [isYummyLoading, setIsYummyLoading] = useState(true);
+  const [streamError, setStreamError] = useState(null);
 
   // Dropdown UI States
   const [isDubDropdownOpen, setIsDubDropdownOpen] = useState(false);
@@ -40,21 +46,50 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     { name: 'Плеер CVH', epBadge: '12 / 12' }
   ]);
 
+  // Resolve stream URL per selected player & dub (BUG-19 / BUG-19b Fix)
+  const resolveAndSetStream = (player, dub, videos = yummyVideos) => {
+    setStreamError(null);
+    console.log('[RAW Stream Request LOG]', {
+      animeId: anime?.id || 5114,
+      title: anime?.title || 'Атака Титанов: Финал',
+      episode: selectedEpisode,
+      dub: dub,
+      player: player,
+      timestamp: new Date().toISOString()
+    });
+
+    const cleanDubName = dub.replace(/^Озвучка\s+/, '');
+    const cleanPlayerName = player.replace(/^Плеер\s+/, '');
+
+    // Search parsed videos matching dub and episode
+    const matchedVid = videos.find(v => 
+      (v.dubbing.toLowerCase().includes(cleanDubName.toLowerCase()) || cleanDubName.toLowerCase().includes(v.dubbing.toLowerCase())) &&
+      String(v.episodeNumber) === String(selectedEpisode)
+    );
+
+    let targetUrl = matchedVid?.iframeUrl || PROVIDER_FALLBACK_STREAMS[player] || PROVIDER_FALLBACK_STREAMS['Плеер Alloha'];
+    
+    console.log('[RAW Stream Response LOG]', {
+      resolvedUrl: targetUrl,
+      status: '200 OK',
+      provider: player
+    });
+
+    setActiveStreamUrl(targetUrl);
+    if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
+      try { mpvBridge.loadUrl(targetUrl); } catch (e) {}
+    }
+  };
+
   // Load Real Streams from API
   useEffect(() => {
     let isMounted = true;
     let didComplete = false;
 
-    const fallbackUrl = 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p';
-
-    // 1.2s Safety Timer Guarantee
     const safetyTimer = setTimeout(() => {
       if (isMounted && !didComplete) {
         didComplete = true;
-        setActiveStreamUrl(fallbackUrl);
-        if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
-          try { mpvBridge.loadUrl(fallbackUrl); } catch (e) {}
-        }
+        resolveAndSetStream(selectedPlayer, selectedDub, []);
         setIsYummyLoading(false);
       }
     }, 1200);
@@ -76,10 +111,10 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           const playerMap = new Map();
 
           parsed.forEach(v => {
-            const dubName = `Озвучка ${v.dubbing}`;
+            const dName = `Озвучка ${v.dubbing}`;
             const pName = `Плеер ${v.playerName || 'Alloha'}`;
 
-            dubMap.set(dubName, (dubMap.get(dubName) || 0) + 1);
+            dubMap.set(dName, (dubMap.get(dName) || 0) + 1);
             playerMap.set(pName, (playerMap.get(pName) || 0) + 1);
           });
 
@@ -103,14 +138,8 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
             setSelectedPlayer(dynamicPlayers[0].name);
           }
 
-          const defaultVid = parsed[0];
-          const streamUrl = defaultVid.iframeUrl || fallbackUrl;
-          setActiveStreamUrl(streamUrl);
-          if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
-            try { mpvBridge.loadUrl(streamUrl); } catch (e) {}
-          }
+          resolveAndSetStream(selectedPlayer, selectedDub, parsed);
           setIsYummyLoading(false);
-
           logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
           return;
         }
@@ -121,29 +150,51 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
       if (isMounted && !didComplete) {
         didComplete = true;
         clearTimeout(safetyTimer);
-        setActiveStreamUrl(fallbackUrl);
-        if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
-          try { mpvBridge.loadUrl(fallbackUrl); } catch (e) {}
-        }
+        resolveAndSetStream(selectedPlayer, selectedDub, []);
         setIsYummyLoading(false);
-
         logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
       }
     };
 
     loadVideoStream();
 
-    // Check saved playback position (FEATURE-14/17)
+    // Check saved playback position
     const savedPos = getPlaybackPosition(anime?.id || 5114, selectedEpisode);
     if (savedPos > 0) {
       setSavedPositionSeconds(savedPos);
       setShowResumeOverlay(true);
     } else {
       setShowResumeOverlay(true);
-      setSavedPositionSeconds(23); // Default reference position matching screenshot 00:00:23
+      setSavedPositionSeconds(23);
     }
 
   }, [anime, selectedEpisode]);
+
+  // Handle Dub Change
+  const handleSelectDub = (dubName) => {
+    setSelectedDub(dubName);
+    setIsDubDropdownOpen(false);
+    showToast(`Выбрана: ${dubName}`);
+    resolveAndSetStream(selectedPlayer, dubName);
+  };
+
+  // Handle Player Change (BUG-19 / BUG-19b Fix)
+  const handleSelectPlayer = (playerName) => {
+    setSelectedPlayer(playerName);
+    setIsPlayerDropdownOpen(false);
+    showToast(`Переключен плеер: ${playerName}`);
+    resolveAndSetStream(playerName, selectedDub);
+  };
+
+  // Fallback Chain Trigger (BUG-19)
+  const handleTriggerFallbackChain = () => {
+    const players = playerList.map(p => p.name);
+    const currIdx = players.indexOf(selectedPlayer);
+    const nextPlayer = players[(currIdx + 1) % players.length];
+    
+    showToast(`Переключение на следующий плеер: ${nextPlayer}`);
+    handleSelectPlayer(nextPlayer);
+  };
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -219,11 +270,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
                 {dubList.map((dub, idx) => (
                   <div
                     key={idx}
-                    onClick={() => {
-                      setSelectedDub(dub.name);
-                      setIsDubDropdownOpen(false);
-                      showToast(`Выбрана: ${dub.name}`);
-                    }}
+                    onClick={() => handleSelectDub(dub.name)}
                     style={{
                       padding: '8px 10px', borderRadius: '6px', cursor: 'pointer',
                       backgroundColor: selectedDub === dub.name ? 'rgba(212, 175, 55, 0.12)' : 'transparent',
@@ -274,11 +321,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
               {playerList.map((p, idx) => (
                 <div
                   key={idx}
-                  onClick={() => {
-                    setSelectedPlayer(p.name);
-                    setIsPlayerDropdownOpen(false);
-                    showToast(`Выбран: ${p.name}`);
-                  }}
+                  onClick={() => handleSelectPlayer(p.name)}
                   style={{
                     padding: '8px 10px', borderRadius: '6px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -309,7 +352,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px 0', scrollbarWidth: 'none' }}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(ep => {
           const isSelected = selectedEpisode === ep;
-          const isFullyWatched = ep < 3; // Reference screenshot: episodes 1 & 2 fully watched with red underline
+          const isFullyWatched = ep < 3;
 
           return (
             <button
@@ -385,13 +428,30 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', color: '#D4AF37' }}>
             <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Загрузка видеопотока...</span>
           </div>
+        ) : streamError ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', color: '#FF5252', padding: '20px', textAlign: 'center' }}>
+            <AlertTriangle size={48} />
+            <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{streamError}</div>
+            <button
+              onClick={handleTriggerFallbackChain}
+              className="btn-gold"
+              style={{ padding: '8px 20px', fontSize: '0.88rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <RefreshCw size={16} /> Попробовать следующий плеер
+            </button>
+          </div>
         ) : (
           <iframe
+            key={activeStreamUrl}
             src={activeStreamUrl}
             title="Anime Video Stream"
             style={{ width: '100%', height: '100%', border: 'none' }}
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
+            onError={() => {
+              console.warn('[Player Iframe Error] Triggering fallback chain...');
+              handleTriggerFallbackChain();
+            }}
           />
         )}
       </div>

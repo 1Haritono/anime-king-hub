@@ -50,9 +50,32 @@ function AnimeGrid({ catalog, onAnimeClick, rankBadge = false }) {
 function DiscoverView({ onAnimeClick }) {
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    fetchShikimoriAnimeList({ order: 'ranked', limit: 12 }).then(d => { setCatalog(d); setLoading(false); });
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 1000);
+
+    fetchShikimoriAnimeList({ order: 'ranked', limit: 12 })
+      .then(d => {
+        if (isMounted) {
+          setCatalog(d && d.length > 0 ? d : []);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        console.warn('Discover fetch error:', err);
+        if (isMounted) setLoading(false);
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => { isMounted = false; clearTimeout(timer); };
   }, []);
+
   return (
     <div>
       <div style={{ backgroundColor: 'rgba(212, 175, 55, 0.1)', border: '1px solid var(--border-gold)', borderRadius: '12px', padding: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -76,11 +99,32 @@ function DiscoverView({ onAnimeClick }) {
 function PopularView({ onAnimeClick }) {
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 1000);
+
     fetchShikimoriAnimeList({ order: 'popularity', limit: 12 })
-      .then(d => { setCatalog(d || []); setLoading(false); })
-      .catch(err => { console.warn(err); setLoading(false); });
+      .then(d => {
+        if (isMounted) {
+          setCatalog(d && d.length > 0 ? d : []);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        console.warn('Popular fetch error:', err);
+        if (isMounted) setLoading(false);
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => { isMounted = false; clearTimeout(timer); };
   }, []);
+
   return (
     <div>
       <div style={{ backgroundColor: 'rgba(92, 6, 28, 0.25)', border: '1px solid var(--border-burgundy)', borderRadius: '12px', padding: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

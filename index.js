@@ -17,9 +17,16 @@ function createWindow() {
     }
   });
 
-  // Inject Referer header for shikimori.one images to bypass hotlink protection
+  // Inject Referer header for shikimori.one images & Kodik/Alloha/VK video embeds to bypass hotlink & domain blocks
   session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['https://shikimori.one/*'] },
+    { urls: [
+      'https://shikimori.one/*',
+      '*://*.kodik*.com/*',
+      '*://*.kodik.info/*',
+      '*://*.alloha.*/*',
+      '*://*.vk.com/*',
+      '*://*.rutube.ru/*'
+    ] },
     (details, callback) => {
       details.requestHeaders['Referer'] = 'https://shikimori.one/';
       details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';

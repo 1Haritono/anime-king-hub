@@ -95,8 +95,7 @@ export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20
 
   for (let i = 0; i < proxies.length; i++) {
     try {
-      console.log(`[Proxy Pipeline] Trying Tier ${i + 1} API proxy...`);
-      const res = await fetchWithTimeout(proxies[i], {}, 2000);
+      const res = await fetchWithTimeout(proxies[i], {}, 1000);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Data is not an array');
