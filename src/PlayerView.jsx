@@ -47,7 +47,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
   ]);
 
   // Resolve stream URL per selected player & dub (BUG-19 / BUG-19b Fix)
-  const resolveAndSetStream = (player, dub, videos = yummyVideos) => {
+  const resolveAndSetStream = async (player, dub, videos = yummyVideos) => {
     setStreamError(null);
     console.log('[RAW Stream Request LOG]', {
       animeId: anime?.id || 5114,
@@ -69,44 +69,51 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
 
     let targetUrl = matchedVid?.iframeUrl || PROVIDER_FALLBACK_STREAMS[player] || PROVIDER_FALLBACK_STREAMS['Плеер Alloha'];
     
-    // BUG-20a: Log RAW stream request & response per provider
-    if (player === 'Плеер Alloha') {
-      console.log('[RAW Player Request - Alloha]', {
-        endpoint: targetUrl,
-        headers: { Referer: 'https://shikimori.one/', 'User-Agent': navigator.userAgent },
-        animeId: anime?.id || 5114, episode: selectedEpisode, dub
-      });
-      console.log('[RAW Player Response - Alloha]', {
-        status: 200, rawTextContainsErrorCode2: false, responseType: 'HTML Iframe Embed'
-      });
-    } else if (player === 'Плеер Kodik') {
-      console.log('[RAW Player Request - Kodik]', {
-        endpoint: targetUrl,
-        headers: { Referer: 'https://shikimori.one/', 'User-Agent': navigator.userAgent },
-        animeId: anime?.id || 5114, episode: selectedEpisode, dub
-      });
-      console.log('[RAW Player Response - Kodik]', {
-        status: 200, rawTextContainsErrorCode2: true, note: 'Kodik internal embed page contains "Error code: 2"'
-      });
-    } else if (player === 'Плеер CVH') {
-      console.log('[RAW Player Request - CVH/VK]', {
-        endpoint: targetUrl,
-        headers: { Referer: 'https://vk.com/', 'User-Agent': navigator.userAgent },
-        animeId: anime?.id || 5114, episode: selectedEpisode, dub
-      });
-      console.log('[RAW Player Response - CVH/VK]', {
-        status: 200, rawTextContainsErrorCode2: false, note: 'VK video file missing/private'
-      });
-    }
+    // Perform pre-flight check to get exact raw responses and diagnose provider errors (BUG-20a, BUG-20b)
+    try {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(proxyUrl);
+      const htmlText = await res.text();
 
-    // BUG-20b: If CVH (VK) selected, check for missing video and offer styled fallback
-    if (player === 'Плеер CVH' && !matchedVid) {
-      showToast('Источнику Плеер CVH видео недоступно. Автоматический переход...');
-      setTimeout(() => {
-        setSelectedPlayer('Плеер Alloha');
-        resolveAndSetStream('Плеер Alloha', dub, videos);
-      }, 1000);
-      return;
+      // BUG-20a: Log RAW stream request & response per provider
+      if (player === 'Плеер Alloha' || player === 'Плеер Kodik') {
+        console.log(`[RAW Player Request - ${cleanPlayerName}]`, {
+          endpoint: targetUrl,
+          headers: { Referer: 'https://shikimori.one/', 'User-Agent': navigator.userAgent },
+          animeId: anime?.id || 5114, episode: selectedEpisode, dub
+        });
+        const hasErrorCode2 = htmlText.includes('Error code: 2');
+        console.log(`[RAW Player Response - ${cleanPlayerName}]`, {
+          status: res.status, rawTextContainsErrorCode2: hasErrorCode2, note: hasErrorCode2 ? 'Provider internal embed page literally returned "Error code: 2"' : 'Provider returned valid HTML'
+        });
+        
+        if (hasErrorCode2) {
+          setStreamError(`Ошибка провайдера ${player}: Error code 2`);
+          return;
+        }
+      } 
+      // BUG-20b: VK "Видеофайл не найден" check
+      else if (player === 'Плеер CVH') {
+        console.log('[RAW Player Request - CVH/VK]', {
+          endpoint: targetUrl,
+          headers: { Referer: 'https://vk.com/', 'User-Agent': navigator.userAgent },
+          animeId: anime?.id || 5114, episode: selectedEpisode, dub
+        });
+        const isVkMissing = htmlText.includes('Видеофайл не найден');
+        console.log('[RAW Player Response - CVH/VK]', {
+          status: res.status, rawTextContainsErrorCode2: false, note: isVkMissing ? 'VK video file missing/private' : 'Provider returned valid HTML'
+        });
+
+        if (isVkMissing) {
+          showToast('Источнику Плеер CVH видео недоступно, пробуем другой источник...');
+          setTimeout(() => {
+            handleTriggerFallbackChain();
+          }, 1500);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Pre-flight fetch failed, proceeding with direct load:', e);
     }
 
     setActiveStreamUrl(targetUrl);
@@ -482,6 +489,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
             style={{ width: '100%', height: '100%', border: 'none' }}
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             onError={() => {
               console.warn('[Player Iframe Error] Triggering fallback chain...');
               handleTriggerFallbackChain();
