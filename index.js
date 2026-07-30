@@ -21,9 +21,9 @@ function createWindow() {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: [
       'https://shikimori.one/*',
-      '*://*.kodik*.com/*',
+      '*://*.kodikplayer.com/*',
       '*://*.kodik.info/*',
-      '*://*.alloha.*/*',
+      '*://*.alloha.tv/*',
       '*://*.vk.com/*',
       '*://*.rutube.ru/*'
     ] },

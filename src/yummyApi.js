@@ -25,12 +25,19 @@ export async function fetchYummyAnimeDetails(animeId, needVideos = true) {
   const targetUrl = `${YUMMY_BASE}/anime/${animeId}${needVideos ? '?need_videos=true' : ''}`;
   
   try {
-    const res = await ipcFetch(targetUrl, {
+    const fetchPromise = ipcFetch(targetUrl, {
       headers: {
         'Accept': 'application/json',
         'X-User-Token': YUMMY_APP_TOKEN
       }
     });
+
+    // 8-second timeout to prevent infinite loading (BUG-18/safetyTimer follow-up)
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('YummyAnime API timeout exceeded (8000ms)')), 8000)
+    );
+
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (res.ok) {
       const data = await res.json();
