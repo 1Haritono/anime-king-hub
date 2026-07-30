@@ -3,7 +3,7 @@ import {
   Home, Compass, Flame, BookOpen, Bookmark, Download,
   Search, Users, Calendar, Bell, Settings, User,
   Minus, Square, X, Crown, Star, DownloadCloud, ExternalLink, Loader2,
-  TrendingUp, Award, Tv, CheckCircle, Clock, Heart, Package
+  Award, RefreshCw
 } from 'lucide-react';
 import SettingsView from './SettingsView';
 import AnimeDetailView from './AnimeDetailView';
@@ -13,6 +13,8 @@ import ProfileView from './ProfileView';
 import ScheduleView from './ScheduleView';
 import { MpvPlayerBridge } from './mpvBridge';
 import { fetchShikimoriAnimeList, fetchShikimoriAnimeDetails } from './shikimoriApi';
+import { AppProvider, useApp } from './AppContext';
+import pkg from '../package.json';
 
 function AnimeGrid({ catalog, onAnimeClick, rankBadge = false }) {
   return (
@@ -45,7 +47,6 @@ function AnimeGrid({ catalog, onAnimeClick, rankBadge = false }) {
   );
 }
 
-// BUG-5: Distinct, visually bold Discover View
 function DiscoverView({ onAnimeClick }) {
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +55,6 @@ function DiscoverView({ onAnimeClick }) {
   }, []);
   return (
     <div>
-      {/* Distinct Hero Banner */}
       <div style={{ backgroundColor: 'rgba(212, 175, 55, 0.1)', border: '1px solid var(--border-gold)', borderRadius: '12px', padding: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#D4AF37', fontWeight: 800, fontSize: '1.25rem', marginBottom: '4px' }}>
@@ -73,7 +73,6 @@ function DiscoverView({ onAnimeClick }) {
   );
 }
 
-// BUG-5: Distinct Popular View
 function PopularView({ onAnimeClick }) {
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +83,6 @@ function PopularView({ onAnimeClick }) {
   }, []);
   return (
     <div>
-      {/* Distinct Hero Banner */}
       <div style={{ backgroundColor: 'rgba(92, 6, 28, 0.25)', border: '1px solid var(--border-burgundy)', borderRadius: '12px', padding: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FF85A2', fontWeight: 800, fontSize: '1.25rem', marginBottom: '4px' }}>
@@ -103,7 +101,6 @@ function PopularView({ onAnimeClick }) {
   );
 }
 
-// BUG-5: Distinct Collections View
 function CollectionsView({ onAnimeClick }) {
   const categories = [
     { id: 'watching', title: '▶ Смотрю сейчас', color: '#4CAF50', desc: 'Аниме в процессе просмотра' },
@@ -153,7 +150,6 @@ function CollectionsView({ onAnimeClick }) {
   );
 }
 
-// BUG-5: Distinct Bookmarks View
 function BookmarksView({ onAnimeClick }) {
   const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
   return (
@@ -177,7 +173,6 @@ function BookmarksView({ onAnimeClick }) {
   );
 }
 
-// BUG-5: Distinct Downloads View
 function DownloadsView() {
   return (
     <div>
@@ -196,49 +191,60 @@ function DownloadsView() {
   );
 }
 
-export default function App() {
-  // BUG-2: Real Theme state synchronization
-  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('animeking_theme') || 'amoled');
+function MainAppContent() {
+  const {
+    activeNav, navigateTo,
+    selectedAnime, setSelectedAnime, openAnimeDetails,
+    isPlayerOpen, setIsPlayerOpen, openPlayer,
+    themeMode, setThemeMode
+  } = useApp();
 
-  useEffect(() => {
-    localStorage.setItem('animeking_theme', themeMode);
-    let effective = themeMode;
-    if (themeMode === 'auto') {
-      effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    document.documentElement.setAttribute('data-theme', effective);
-    document.body.setAttribute('data-theme', effective);
-  }, [themeMode]);
-
-  const [activeNav, setActiveNav] = useState('home');
   const [activeTab, setActiveTab] = useState('Аниме');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAnime, setSelectedAnime] = useState(null);
-  const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [isWatchPartyOpen, setIsWatchPartyOpen] = useState(false);
   const [mpvBridgeInstance] = useState(() => new MpvPlayerBridge());
 
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // BUG-6: Honest GitHub API update check
-  const CURRENT_APP_VERSION = 'v1.3.0';
-  const [hasUpdate, setHasUpdate] = useState(false);
-  const [latestReleaseUrl, setLatestReleaseUrl] = useState('');
+  // BUG-16: Dynamic Versioning from package.json
+  const CURRENT_APP_VERSION = `v${pkg.version}`;
+
+  // FEATURE-13: Real electron-updater IPC Auto-Updater state
+  const [updaterState, setUpdaterState] = useState({ status: 'idle', percent: 0, version: '' });
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/1Haritono/anime-king-hub/releases/latest', {
-      headers: { Accept: 'application/vnd.github.v3+json' }
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data && data.tag_name && data.tag_name !== CURRENT_APP_VERSION) {
-          setHasUpdate(true);
-          setLatestReleaseUrl(data.html_url);
-        }
-      })
-      .catch(e => console.warn('Update check:', e.message));
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.on('updater-status', (event, data) => {
+        setUpdaterState(data);
+      });
+    }
   }, []);
+
+  const triggerUpdateCheck = () => {
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.send('check-for-updates');
+      setUpdaterState({ status: 'checking', percent: 0, version: '' });
+    } else {
+      window.open('https://github.com/1Haritono/anime-king-hub/releases', '_blank');
+    }
+  };
+
+  const startDownloadUpdate = () => {
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.send('start-download-update');
+    }
+  };
+
+  const installUpdateNow = () => {
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.send('quit-and-install-update');
+    }
+  };
 
   // Home catalog loader
   useEffect(() => {
@@ -271,29 +277,22 @@ export default function App() {
 
   const topTabs = ['Аниме', 'Анонсированные', 'Текущие', 'Фильмы', 'OVA', 'Дунхуа', 'Завершённые'];
 
-  // BUG-1: Immediate details page navigation
+  // BUG-12: Central Card Click Handler
   const handleAnimeClick = async (item) => {
-    setSelectedAnime(item);
+    openAnimeDetails(item);
     try {
       const details = await fetchShikimoriAnimeDetails(item.id);
-      if (details) setSelectedAnime(details);
+      if (details) openAnimeDetails(details);
     } catch (e) { console.warn('Detail fetch:', e.message); }
   };
 
-  const navigateTo = (navId) => {
-    setSelectedAnime(null);
-    setIsPlayerOpen(false);
-    setActiveNav(navId);
-  };
-
   const renderContent = () => {
-    if (isPlayerOpen) return <PlayerView anime={selectedAnime} onBack={() => setIsPlayerOpen(false)} mpvBridge={mpvBridgeInstance} anime4kSettings={{ preset: 'modeA', quality: 'HQ' }} />;
+    if (isPlayerOpen) return <PlayerView anime={selectedAnime} onBack={() => setIsPlayerOpen(false)} mpvBridge={mpvBridgeInstance} />;
     if (selectedAnime) return <AnimeDetailView anime={selectedAnime} onBack={() => setSelectedAnime(null)} onPlay={() => setIsPlayerOpen(true)} />;
     if (activeNav === 'settings') return <SettingsView isMpvConnected={true} themeMode={themeMode} setThemeMode={setThemeMode} />;
     if (activeNav === 'profile') return <ProfileView onPlaySample={handleAnimeClick} />;
     if (activeNav === 'schedule') return <ScheduleView onSelectAnime={handleAnimeClick} />;
     
-    // BUG-5: Distinct sidebar view routing
     if (activeNav === 'discover') return <DiscoverView onAnimeClick={handleAnimeClick} />;
     if (activeNav === 'popular') return <PopularView onAnimeClick={handleAnimeClick} />;
     if (activeNav === 'collections') return <CollectionsView onAnimeClick={handleAnimeClick} />;
@@ -303,7 +302,6 @@ export default function App() {
     // Default Home View
     return (
       <>
-        {/* BUG-8: Generic user-facing titles */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             Каталог аниме: <span style={{ color: '#D4AF37' }}>{activeTab}</span>
@@ -325,17 +323,19 @@ export default function App() {
   return (
     <div className="app-root" style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
 
-      {/* BUG-2: Themed Sidebar, BUG-7: Correct logo ordering "Anime ♛ Hub" */}
+      {/* Sidebar */}
       <aside className="app-sidebar" style={{ width: '240px', display: 'flex', flexDirection: 'column', paddingTop: '16px', flexShrink: 0 }}>
         
-        {/* BUG-7 Logo Order */}
+        {/* Logo Order & BUG-16 Dynamic Version */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 20px 24px 20px' }}>
           <img src="/icon.svg" alt="" style={{ width: '38px', height: '38px' }} onError={e => e.target.style.display='none'} />
           <div>
             <h1 style={{ fontSize: '1.05rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '4px', lineHeight: 1.2, color: 'var(--text-primary)' }}>
               Anime&nbsp;<Crown size={15} color="#D4AF37" fill="#D4AF37" />&nbsp;Hub
             </h1>
-            <span style={{ fontSize: '0.62rem', color: '#D4AF37', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase' }}>Edition {CURRENT_APP_VERSION}</span>
+            <span style={{ fontSize: '0.62rem', color: '#D4AF37', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+              EDITION {CURRENT_APP_VERSION}
+            </span>
           </div>
         </div>
 
@@ -354,18 +354,33 @@ export default function App() {
         </nav>
       </aside>
 
-      {/* BUG-2: Themed Main Workspace */}
+      {/* Main Workspace */}
       <div className="app-root" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header Bar */}
         <header className="app-header" style={{ height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', userSelect: 'none' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Anime King Hub — Desktop Application</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {hasUpdate && latestReleaseUrl && (
-              <a href={latestReleaseUrl} target="_blank" rel="noreferrer" className="update-btn-toolbar">
-                <DownloadCloud size={12} /> Обновить <ExternalLink size={10} />
-              </a>
+            
+            {/* FEATURE-13: In-App Auto-Updater Button */}
+            {updaterState.status === 'downloading' ? (
+              <span className="update-btn-toolbar" style={{ backgroundColor: 'var(--bg-surface)' }}>
+                <Loader2 size={12} className="spin-icon" /> Скачивание... {updaterState.percent}%
+              </span>
+            ) : updaterState.status === 'downloaded' ? (
+              <button onClick={installUpdateNow} className="update-btn-toolbar" style={{ backgroundColor: '#4CAF50', color: '#FFF' }}>
+                <RefreshCw size={12} /> Установить и перезапустить
+              </button>
+            ) : updaterState.status === 'available' ? (
+              <button onClick={startDownloadUpdate} className="update-btn-toolbar">
+                <DownloadCloud size={12} /> Скачать {updaterState.version}
+              </button>
+            ) : (
+              <button onClick={triggerUpdateCheck} className="update-btn-toolbar" title="Проверить обновления (electron-updater)">
+                <DownloadCloud size={12} /> Обновить
+              </button>
             )}
+
             <button className="icon-btn" onClick={() => setIsWatchPartyOpen(true)} title="Watch Party"><Users size={16} color={isWatchPartyOpen ? '#D4AF37' : 'var(--text-secondary)'} /></button>
             <button className="icon-btn" onClick={() => navigateTo('schedule')} title="Расписание"><Calendar size={16} color={activeNav === 'schedule' && !selectedAnime ? '#D4AF37' : 'var(--text-secondary)'} /></button>
             <button className="icon-btn" title="Уведомления"><Bell size={16} color="var(--text-secondary)" /></button>
@@ -378,7 +393,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* BUG-8: Generic Search Bar "Поиск аниме..." */}
+        {/* Search Bar */}
         {!selectedAnime && !isPlayerOpen && activeNav === 'home' && (
           <div style={{ padding: '20px 24px 0 24px', backgroundColor: 'var(--bg-amoled)' }}>
             <div style={{ position: 'relative', maxWidth: '540px', marginBottom: '20px' }}>
@@ -389,14 +404,9 @@ export default function App() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 style={{
-                  width: '100%',
-                  borderRadius: '8px',
-                  padding: '10px 14px 10px 42px',
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-burgundy)',
-                  color: 'var(--text-primary)'
+                  width: '100%', borderRadius: '8px', padding: '10px 14px 10px 42px',
+                  fontSize: '0.9rem', outline: 'none', backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-burgundy)', color: 'var(--text-primary)'
                 }}
               />
             </div>
@@ -428,5 +438,13 @@ export default function App() {
           onRoomJoined={r => console.log('Room joined:', r)} />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <MainAppContent />
+    </AppProvider>
   );
 }

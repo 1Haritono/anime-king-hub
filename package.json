@@ -1,7 +1,7 @@
 {
   "name": "anime-king-hub",
   "private": true,
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "AMOLED Desktop App for Anime King Hub",
   "author": "1Haritono",
   "main": "index.js",
@@ -14,6 +14,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "lucide-react": "^1.27.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -40,6 +41,13 @@
     "win": {
       "icon": "public/icon.svg",
       "target": "nsis"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "1Haritono",
+        "repo": "anime-king-hub"
+      }
+    ]
   }
 }
