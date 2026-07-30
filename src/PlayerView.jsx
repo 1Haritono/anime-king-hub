@@ -71,9 +71,10 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     
     // Perform pre-flight check to get exact raw responses and diagnose provider errors (BUG-20a, BUG-20b)
     try {
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
       const res = await fetch(proxyUrl);
-      const htmlText = await res.text();
+      const data = await res.json();
+      const htmlText = data.contents || '';
 
       // BUG-20a: Log RAW stream request & response per provider
       if (player === 'Плеер Alloha' || player === 'Плеер Kodik') {
