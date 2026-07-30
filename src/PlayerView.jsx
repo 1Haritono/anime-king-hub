@@ -52,7 +52,9 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
       if (isMounted && !didComplete) {
         didComplete = true;
         setActiveStreamUrl(fallbackUrl);
-        if (mpvBridge) mpvBridge.loadUrl(fallbackUrl);
+        if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
+          try { mpvBridge.loadUrl(fallbackUrl); } catch (e) {}
+        }
         setIsYummyLoading(false);
       }
     }, 1200);
@@ -102,8 +104,11 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           }
 
           const defaultVid = parsed[0];
-          setActiveStreamUrl(defaultVid.iframeUrl || fallbackUrl);
-          if (mpvBridge) mpvBridge.loadUrl(defaultVid.iframeUrl || fallbackUrl);
+          const streamUrl = defaultVid.iframeUrl || fallbackUrl;
+          setActiveStreamUrl(streamUrl);
+          if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
+            try { mpvBridge.loadUrl(streamUrl); } catch (e) {}
+          }
           setIsYummyLoading(false);
 
           logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
@@ -117,7 +122,9 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
         didComplete = true;
         clearTimeout(safetyTimer);
         setActiveStreamUrl(fallbackUrl);
-        if (mpvBridge) mpvBridge.loadUrl(fallbackUrl);
+        if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
+          try { mpvBridge.loadUrl(fallbackUrl); } catch (e) {}
+        }
         setIsYummyLoading(false);
 
         logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);

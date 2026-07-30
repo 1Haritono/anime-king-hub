@@ -11,6 +11,14 @@ export class MpvPlayerBridge {
   }
 
   // C14: Launch mpv child process with JSON IPC (Electron / Desktop)
+  loadUrl(url) {
+    if (this.isConnected && this.client) {
+      this.sendCommand(['loadfile', url]);
+    } else {
+      console.log('[MPV Bridge] loadUrl called:', url);
+    }
+  }
+
   spawnMpv(videoUrl, options = {}) {
     // Check if running in Node/Electron environment
     if (typeof window !== 'undefined' && window.require) {
