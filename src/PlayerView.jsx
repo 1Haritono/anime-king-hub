@@ -2,15 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, ChevronDown, Bell, X, AlertTriangle, RefreshCw
 } from 'lucide-react';
-import { fetchYummyAnimeDetails, parseYummyVideos } from './yummyApi';
+import { fetchYummyAnimeDetails, parseYummyVideos, ipcFetch } from './yummyApi';
 import { logEpisodeWatch, savePlaybackPosition, getPlaybackPosition } from './watchHistoryService';
 
-// Provider-specific fallback embed URLs
-const PROVIDER_FALLBACK_STREAMS = {
-  'Плеер Alloha': 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p',
-  'Плеер Kodik': 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p',
-  'Плеер CVH': 'https://vk.com/video_ext.php?oid=-209703770&id=456239100&hash=8506dbca6f7d08b3'
-};
 
 export default function PlayerView({ anime, onBack, mpvBridge }) {
   const [yummyVideos, setYummyVideos] = useState([]);
@@ -61,20 +55,29 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     const cleanDubName = dub.replace(/^Озвучка\s+/, '');
     const cleanPlayerName = player.replace(/^Плеер\s+/, '');
 
-    // Search parsed videos matching dub and episode
+    // Strict matching (BUG-22): Require dubbing, episode, AND player name to match
     const matchedVid = videos.find(v => 
       (v.dubbing.toLowerCase().includes(cleanDubName.toLowerCase()) || cleanDubName.toLowerCase().includes(v.dubbing.toLowerCase())) &&
-      String(v.episodeNumber) === String(selectedEpisode)
+      String(v.episodeNumber) === String(selectedEpisode) &&
+      (v.playerName.toLowerCase().includes(cleanPlayerName.toLowerCase()) || cleanPlayerName.toLowerCase().includes(v.playerName.toLowerCase()))
     );
 
-    let targetUrl = matchedVid?.iframeUrl || PROVIDER_FALLBACK_STREAMS[player] || PROVIDER_FALLBACK_STREAMS['Плеер Alloha'];
+    // If YummyAnime API genuinely has no URL for this specific combination, trigger fallback behavior without hardcoded IDs
+    if (!matchedVid || !matchedVid.iframeUrl) {
+      console.warn(`[Video Missing] No matching video found for ${player}, ${dub}, Episode ${selectedEpisode}`);
+      showToast(`Источнику ${player} видео недоступно, пробуем другой источник...`);
+      setTimeout(() => {
+        handleTriggerFallbackChain();
+      }, 1500);
+      return;
+    }
+
+    let targetUrl = matchedVid.iframeUrl;
     
-    // Perform pre-flight check to get exact raw responses and diagnose provider errors (BUG-20a, BUG-20b)
+    // Perform pre-flight check to get exact raw responses and diagnose provider errors (BUG-20a, BUG-20b, BUG-23)
     try {
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-      const res = await fetch(proxyUrl);
-      const data = await res.json();
-      const htmlText = data.contents || '';
+      const res = await ipcFetch(targetUrl);
+      const htmlText = await res.text();
 
       // BUG-20a: Log RAW stream request & response per provider
       if (player === 'Плеер Alloha' || player === 'Плеер Kodik') {
@@ -126,15 +129,6 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
   // Load Real Streams from API
   useEffect(() => {
     let isMounted = true;
-    let didComplete = false;
-
-    const safetyTimer = setTimeout(() => {
-      if (isMounted && !didComplete) {
-        didComplete = true;
-        resolveAndSetStream(selectedPlayer, selectedDub, []);
-        setIsYummyLoading(false);
-      }
-    }, 1200);
 
     const loadVideoStream = async () => {
       setIsYummyLoading(true);
@@ -142,9 +136,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
 
       try {
         const yummyDetails = await fetchYummyAnimeDetails(titleId, true);
-        if (isMounted && !didComplete && yummyDetails && yummyDetails.videos && yummyDetails.videos.length > 0) {
-          didComplete = true;
-          clearTimeout(safetyTimer);
+        if (isMounted && yummyDetails && yummyDetails.videos && yummyDetails.videos.length > 0) {
           const parsed = parseYummyVideos(yummyDetails.videos);
           setYummyVideos(parsed);
 
@@ -183,18 +175,16 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           resolveAndSetStream(selectedPlayer, selectedDub, parsed);
           setIsYummyLoading(false);
           logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
-          return;
+        } else if (isMounted) {
+          setStreamError('Видео не найдены для данного тайтла.');
+          setIsYummyLoading(false);
         }
       } catch (err) {
-        console.warn('YummyAnime API load error:', err.message);
-      }
-
-      if (isMounted && !didComplete) {
-        didComplete = true;
-        clearTimeout(safetyTimer);
-        resolveAndSetStream(selectedPlayer, selectedDub, []);
-        setIsYummyLoading(false);
-        logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
+        if (isMounted) {
+          console.warn('YummyAnime API load error:', err.message);
+          setStreamError('Ошибка загрузки данных YummyAnime.');
+          setIsYummyLoading(false);
+        }
       }
     };
 

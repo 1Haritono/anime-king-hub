@@ -2,46 +2,42 @@
 const YUMMY_BASE = 'https://api.yani.tv';
 const YUMMY_APP_TOKEN = import.meta.env.VITE_YUMMY_APP_TOKEN || 'kxqtm49l68hc7f8tb5b1ubaz0hfj4mg9';
 
+export async function ipcFetch(url, options = {}) {
+  const isElectron = typeof window !== 'undefined' && window.require;
+  const ipcRenderer = isElectron ? window.require('electron').ipcRenderer : null;
+  
+  if (ipcRenderer) {
+    const res = await ipcRenderer.invoke('electron-fetch', url, options);
+    if (res.error) throw new Error(res.error);
+    return {
+      ok: res.ok,
+      status: res.status,
+      text: async () => res.data,
+      json: async () => JSON.parse(res.data)
+    };
+  }
+  
+  // Browser fallback (will likely fail CORS for protected endpoints, expected in Electron app)
+  return fetch(url, options);
+}
+
 export async function fetchYummyAnimeDetails(animeId, needVideos = true) {
   const targetUrl = `${YUMMY_BASE}/anime/${animeId}${needVideos ? '?need_videos=true' : ''}`;
   
-  // 1. Try Direct Fetch with 1.5s timeout
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1500);
-
-    const res = await fetch(targetUrl, {
-      signal: controller.signal,
+    const res = await ipcFetch(targetUrl, {
       headers: {
         'Accept': 'application/json',
         'X-User-Token': YUMMY_APP_TOKEN
       }
     });
-    clearTimeout(timer);
 
     if (res.ok) {
       const data = await res.json();
       if (data && data.response) return data.response;
     }
   } catch (err) {
-    console.warn('Direct YummyAnime API fetch bypassed:', err.message);
-  }
-
-  // 2. Try CORS Proxy Fallback with 1.5s timeout
-  try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1500);
-
-    const res = await fetch(proxyUrl, { signal: controller.signal });
-    clearTimeout(timer);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.response) return data.response;
-    }
-  } catch (err) {
-    console.warn('Proxy YummyAnime API fetch bypassed:', err.message);
+    console.warn('YummyAnime API fetch failed:', err.message);
   }
 
   return null;

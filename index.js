@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain } = require('electron');
+const { app, BrowserWindow, session, ipcMain, net } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
@@ -78,6 +78,20 @@ ipcMain.on('check-for-updates', () => {
   autoUpdater.checkForUpdates().catch(err => {
     if (mainWindow) mainWindow.webContents.send('updater-status', { status: 'error', error: err.message });
   });
+});
+
+ipcMain.handle('electron-fetch', async (event, url, options = {}) => {
+  try {
+    const response = await net.fetch(url, options);
+    const text = await response.text();
+    return { 
+      ok: response.ok, 
+      status: response.status, 
+      data: text 
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 ipcMain.on('start-download-update', () => {
