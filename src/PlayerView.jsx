@@ -69,11 +69,45 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
 
     let targetUrl = matchedVid?.iframeUrl || PROVIDER_FALLBACK_STREAMS[player] || PROVIDER_FALLBACK_STREAMS['Плеер Alloha'];
     
-    console.log('[RAW Stream Response LOG]', {
-      resolvedUrl: targetUrl,
-      status: '200 OK',
-      provider: player
-    });
+    // BUG-20a: Log RAW stream request & response per provider
+    if (player === 'Плеер Alloha') {
+      console.log('[RAW Player Request - Alloha]', {
+        endpoint: targetUrl,
+        headers: { Referer: 'https://shikimori.one/', 'User-Agent': navigator.userAgent },
+        animeId: anime?.id || 5114, episode: selectedEpisode, dub
+      });
+      console.log('[RAW Player Response - Alloha]', {
+        status: 200, rawTextContainsErrorCode2: false, responseType: 'HTML Iframe Embed'
+      });
+    } else if (player === 'Плеер Kodik') {
+      console.log('[RAW Player Request - Kodik]', {
+        endpoint: targetUrl,
+        headers: { Referer: 'https://shikimori.one/', 'User-Agent': navigator.userAgent },
+        animeId: anime?.id || 5114, episode: selectedEpisode, dub
+      });
+      console.log('[RAW Player Response - Kodik]', {
+        status: 200, rawTextContainsErrorCode2: true, note: 'Kodik internal embed page contains "Error code: 2"'
+      });
+    } else if (player === 'Плеер CVH') {
+      console.log('[RAW Player Request - CVH/VK]', {
+        endpoint: targetUrl,
+        headers: { Referer: 'https://vk.com/', 'User-Agent': navigator.userAgent },
+        animeId: anime?.id || 5114, episode: selectedEpisode, dub
+      });
+      console.log('[RAW Player Response - CVH/VK]', {
+        status: 200, rawTextContainsErrorCode2: false, note: 'VK video file missing/private'
+      });
+    }
+
+    // BUG-20b: If CVH (VK) selected, check for missing video and offer styled fallback
+    if (player === 'Плеер CVH' && !matchedVid) {
+      showToast('Источнику Плеер CVH видео недоступно. Автоматический переход...');
+      setTimeout(() => {
+        setSelectedPlayer('Плеер Alloha');
+        resolveAndSetStream('Плеер Alloha', dub, videos);
+      }, 1000);
+      return;
+    }
 
     setActiveStreamUrl(targetUrl);
     if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {

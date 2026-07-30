@@ -139,23 +139,60 @@ export default function AnimeDetailView({ anime, onBack, onPlay }) {
               </div>
             </div>
 
-            {/* Kinopoisk Rating */}
+            {/* Kinopoisk Rating (DESIGN-22: Redesigned matching reference image with SVG K sunburst logo) */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
+              gap: '12px',
               backgroundColor: '#121212',
               border: '1px solid rgba(255, 102, 0, 0.4)',
-              padding: '10px 16px',
-              borderRadius: '10px'
+              padding: '8px 16px',
+              borderRadius: '10px',
+              boxShadow: '0 4px 14px rgba(255, 102, 0, 0.15)'
             }}>
-              <div style={{ backgroundColor: '#FF6600', color: '#FFF', fontWeight: 900, fontSize: '0.75rem', padding: '3px 6px', borderRadius: '4px' }}>КП</div>
+              {/* Kinopoisk Reference Pill Box */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: '#0A0A0A',
+                border: '1px solid rgba(255, 102, 0, 0.6)',
+                padding: '5px 12px',
+                borderRadius: '8px'
+              }}>
+                {/* SVG Kinopoisk K Sunburst Logo */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 3V21H8V14L14 21H19L12 12.5L18.5 3H13.5L8 10.5V3H4Z" fill="url(#kp_grad)" />
+                  <path d="M14 4.5L10 9M17 9L11.5 11M16 15L10.5 13M12.5 19L9.5 14" stroke="#FF9900" strokeWidth="1.5" strokeLinecap="round" />
+                  <defs>
+                    <linearGradient id="kp_grad" x1="4" y1="3" x2="19" y2="21" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#FF5500" />
+                      <stop offset="0.6" stopColor="#FF9900" />
+                      <stop offset="1" stopColor="#E5E600" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                {/* Score Number in Gradient */}
+                <span style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 900,
+                  background: 'linear-gradient(90deg, #FF6600 0%, #FFAA00 50%, #B8E600 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontFamily: 'monospace, sans-serif',
+                  letterSpacing: '-0.5px'
+                }}>
+                  {anime.kinopoiskRating || '9.2'}
+                </span>
+              </div>
+
               <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#FF9933' }}>
-                  {anime.kinopoiskRating || '9.1'} <span style={{ fontSize: '0.8rem', color: '#666' }}>/ 10</span>
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  Кинопоиск
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#A0A0A0' }}>
-                  Кинопоиск (85,410 оценок)
+                <div style={{ fontSize: '0.72rem', color: '#A0A0A0' }}>
+                  {anime.votesCount || '85,410'} оценок
                 </div>
               </div>
             </div>
