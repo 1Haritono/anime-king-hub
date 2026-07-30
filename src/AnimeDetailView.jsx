@@ -260,28 +260,31 @@ export default function AnimeDetailView({ anime, onBack, onPlay }) {
       </div>
 
       {/* Grid of Screenshots */}
-      <div>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px', color: '#D4AF37' }}>
-          Кадры из тайтла
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          {[1, 2, 3, 4].map(idx => (
-            <div key={idx} style={{
-              height: '130px',
-              backgroundColor: '#161616',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.05)'
-            }}>
-              <img
-                src={`https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&auto=format&fit=crop&q=80&sig=${idx}`}
-                alt="Screenshot"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-          ))}
+      {anime.screenshots && anime.screenshots.length > 0 && (
+        <div>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px', color: '#D4AF37' }}>
+            Кадры из тайтла
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            {anime.screenshots.slice(0, 4).map((url, idx) => (
+              <div key={idx} style={{
+                height: '130px',
+                backgroundColor: '#161616',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                <img
+                  src={url}
+                  alt={`Screenshot ${idx + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* QR Modal */}
       {showQrModal && (

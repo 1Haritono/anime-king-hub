@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Star, Clock, Heart, Award, Film, Key, Mail, Lock, CheckCircle, Info, ChevronRight, LogOut } from 'lucide-react';
+import { User, Star, Clock, Heart, Award, Film, Key, Mail, Lock, CheckCircle, Info, ChevronRight, LogOut, Eye, EyeOff } from 'lucide-react';
 import { useApp } from './AppContext';
 import { getProfileAnalytics, formatRelativeTime } from './watchHistoryService';
 
@@ -9,6 +9,7 @@ export default function ProfileView({ onPlaySample }) {
   const [showManualLoginModal, setShowManualLoginModal] = useState(false);
   const [manualUsername, setManualUsername] = useState('');
   const [manualPassword, setManualPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [analytics, setAnalytics] = useState(getProfileAnalytics());
 
   useEffect(() => {
@@ -294,17 +295,28 @@ export default function ProfileView({ onPlaySample }) {
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={manualPassword}
                     onChange={(e) => setManualPassword(e.target.value)}
                     placeholder="••••••••"
                     required
                     style={{
-                      width: '100%', padding: '10px 12px 10px 38px', borderRadius: '8px',
+                      width: '100%', padding: '10px 40px 10px 38px', borderRadius: '8px',
                       border: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-surface)',
                       color: 'var(--text-primary)', fontSize: '0.88rem'
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={18} color="var(--text-muted)" /> : <Eye size={18} color="var(--text-muted)" />}
+                  </button>
                 </div>
               </div>
 

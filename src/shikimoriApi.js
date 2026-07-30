@@ -5,19 +5,23 @@ const WESERV_PROXY = 'https://images.weserv.nl/?url=';
 const FALLBACK_SHIKIMORI_CATALOG = [
   {
     id: 5114,
-    title: 'Атака Титанов: Финал',
-    originalTitle: 'Shingeki no Kyojin: The Final Season',
-    rating: '9.8',
-    votesCount: '48,210',
-    kinopoiskRating: '9.2',
-    ageRating: '18+',
+    title: 'Стальной алхимик: Братство',
+    originalTitle: 'Fullmetal Alchemist: Brotherhood',
+    rating: '9.1',
+    votesCount: '154,230',
+    kinopoiskRating: '8.8',
+    ageRating: '16+',
     status: 'Завершён',
-    type: 'ТВ-сериал (28 эп.)',
-    yearSeason: '2024',
-    studio: 'MAPPA',
-    director: 'Юитиро Хаяси',
+    type: 'ТВ-сериал (64 эп.)',
+    yearSeason: '2009',
+    studio: 'Bones',
+    director: 'Ясухиро Ириэ',
     posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg',
-    description: 'Эрен Йегер начинает финальную битву за свободу Парадиса.'
+    description: 'Братья Эдвард и Альфонс Элрики в попытке воскресить свою умершую мать...',
+    screenshots: [
+      'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg',
+      'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg'
+    ]
   },
   {
     id: 52034,
@@ -168,7 +172,8 @@ export async function fetchShikimoriAnimeDetails(id) {
         studio: item.studios && item.studios.length > 0 ? item.studios[0].name : 'Аниме Студия',
         director: 'Известный Режиссер',
         posterUrl: proxiedPoster || 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg',
-        description: item.description ? item.description.replace(/\[\/?\w+\]/g, '') : 'Описание отсутствует.'
+        description: item.description ? item.description.replace(/\[\/?\w+\]/g, '') : 'Описание отсутствует.',
+        screenshots: await fetchShikimoriScreenshots(id)
       };
     } catch (err) {
       console.warn(`[Proxy Pipeline] Detail fetch Tier ${i + 1} failed:`, err.message);
@@ -176,5 +181,22 @@ export async function fetchShikimoriAnimeDetails(id) {
   }
 
   const item = FALLBACK_SHIKIMORI_CATALOG.find(i => i.id === id) || FALLBACK_SHIKIMORI_CATALOG[0];
-  return { ...item, mal_id: item.id };
+  return { ...item, mal_id: item.id, screenshots: item.screenshots || [] };
+}
+
+export async function fetchShikimoriScreenshots(id) {
+  try {
+    const { ipcFetch } = await import('./yummyApi.js');
+    const targetUrl = `${SHIKIMORI_BASE}/api/animes/${id}/screenshots`;
+    const res = await ipcFetch(targetUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data.map(s => `${SHIKIMORI_BASE}${s.original}`);
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch screenshots:', err.message);
+  }
+  return [];
 }
