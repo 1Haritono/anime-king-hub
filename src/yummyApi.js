@@ -1,24 +1,50 @@
-// YummyAnime API Integration Service (api.yani.tv) - Direct Requests
+// YummyAnime API Integration Service (api.yani.tv) with Proxy & Fast Timeout Fallback
 const YUMMY_BASE = 'https://api.yani.tv';
 const YUMMY_APP_TOKEN = import.meta.env.VITE_YUMMY_APP_TOKEN || 'kxqtm49l68hc7f8tb5b1ubaz0hfj4mg9';
 
 export async function fetchYummyAnimeDetails(animeId, needVideos = true) {
+  const targetUrl = `${YUMMY_BASE}/anime/${animeId}${needVideos ? '?need_videos=true' : ''}`;
+  
+  // 1. Try Direct Fetch with 1.5s timeout
   try {
-    const targetUrl = `${YUMMY_BASE}/anime/${animeId}${needVideos ? '?need_videos=true' : ''}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+
     const res = await fetch(targetUrl, {
+      signal: controller.signal,
       headers: {
         'Accept': 'application/json',
         'X-User-Token': YUMMY_APP_TOKEN
       }
     });
+    clearTimeout(timer);
 
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
-    return data.response || null;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.response) return data.response;
+    }
   } catch (err) {
-    console.warn('YummyAnime API direct request failed:', err.message);
-    return null;
+    console.warn('Direct YummyAnime API fetch bypassed:', err.message);
   }
+
+  // 2. Try CORS Proxy Fallback with 1.5s timeout
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+
+    const res = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.response) return data.response;
+    }
+  } catch (err) {
+    console.warn('Proxy YummyAnime API fetch bypassed:', err.message);
+  }
+
+  return null;
 }
 
 export function parseYummyVideos(videosArray = []) {

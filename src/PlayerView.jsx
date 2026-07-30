@@ -43,13 +43,29 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
   // Load Real Streams from API
   useEffect(() => {
     let isMounted = true;
+    let didComplete = false;
+
+    const fallbackUrl = 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p';
+
+    // 1.2s Safety Timer Guarantee
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && !didComplete) {
+        didComplete = true;
+        setActiveStreamUrl(fallbackUrl);
+        if (mpvBridge) mpvBridge.loadUrl(fallbackUrl);
+        setIsYummyLoading(false);
+      }
+    }, 1200);
+
     const loadVideoStream = async () => {
       setIsYummyLoading(true);
       const titleId = anime?.id || 5114;
 
       try {
         const yummyDetails = await fetchYummyAnimeDetails(titleId, true);
-        if (isMounted && yummyDetails && yummyDetails.videos && yummyDetails.videos.length > 0) {
+        if (isMounted && !didComplete && yummyDetails && yummyDetails.videos && yummyDetails.videos.length > 0) {
+          didComplete = true;
+          clearTimeout(safetyTimer);
           const parsed = parseYummyVideos(yummyDetails.videos);
           setYummyVideos(parsed);
 
@@ -86,11 +102,10 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           }
 
           const defaultVid = parsed[0];
-          setActiveStreamUrl(defaultVid.iframeUrl);
-          if (mpvBridge) mpvBridge.loadUrl(defaultVid.iframeUrl);
+          setActiveStreamUrl(defaultVid.iframeUrl || fallbackUrl);
+          if (mpvBridge) mpvBridge.loadUrl(defaultVid.iframeUrl || fallbackUrl);
           setIsYummyLoading(false);
 
-          // Log watch history
           logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
           return;
         }
@@ -98,13 +113,13 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
         console.warn('YummyAnime API load error:', err.message);
       }
 
-      if (isMounted) {
-        const fallbackUrl = 'https://kodikplayer.com/video/102289/fdda7e974fe78255761683611c1b61ee/720p';
+      if (isMounted && !didComplete) {
+        didComplete = true;
+        clearTimeout(safetyTimer);
         setActiveStreamUrl(fallbackUrl);
         if (mpvBridge) mpvBridge.loadUrl(fallbackUrl);
         setIsYummyLoading(false);
 
-        // Log watch history
         logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
       }
     };
