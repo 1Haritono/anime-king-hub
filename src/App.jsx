@@ -245,6 +245,131 @@ function PopularView({ onAnimeClick, openPlayer }) {
   );
 }
 
+function Top100View({ onAnimeClick, openPlayer }) {
+  const [topTab, setTopTab] = useState('tv');
+  const [catalog, setCatalog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [completedCount, setCompletedCount] = useState(0);
+
+  const subTabs = [
+    { id: 'tv', label: 'ТВ-СЕРИАЛЫ' },
+    { id: 'movie', label: 'ФИЛЬМЫ' },
+    { id: 'ona', label: 'ONA' }
+  ];
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setCatalog([]);
+
+    import('./yummyApi').then(({ fetchYummyTop100 }) => {
+      fetchYummyTop100(topTab).then(list => {
+        if (isMounted) {
+          setCatalog(list || []);
+          setLoading(false);
+
+          try {
+            const rawCompleted = localStorage.getItem('collection_completed');
+            const completedItems = rawCompleted ? JSON.parse(rawCompleted) : [];
+            const completedIds = new Set(completedItems.map(item => String(item.id || item.anime_id || item.anixartId)));
+            const matchCount = (list || []).filter(item => completedIds.has(String(item.id || item.anime_id))).length;
+            setCompletedCount(matchCount);
+          } catch (e) {
+            setCompletedCount(0);
+          }
+        }
+      });
+    });
+
+    return () => { isMounted = false; };
+  }, [topTab]);
+
+  return (
+    <div>
+      <div style={{ backgroundColor: 'rgba(212, 175, 55, 0.15)', border: '1px solid var(--border-gold)', borderRadius: '12px', padding: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#D4AF37', fontWeight: 800, fontSize: '1.3rem', marginBottom: '4px' }}>
+            <Award size={26} color="#D4AF37" /> 🏆 ТОП-100 — Рейтинг сайта YummyAnime
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Самые высокооцененные тайтлы по категориям сайта</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <span className="badge-gold" style={{ padding: '6px 14px', fontSize: '0.85rem', fontWeight: 800 }}>
+            Просмотрено {completedCount} из {catalog.length || 100}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+        {subTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setTopTab(tab.id)}
+            style={{
+              backgroundColor: topTab === tab.id ? 'var(--border-gold)' : 'var(--bg-card)',
+              color: topTab === tab.id ? '#000' : 'var(--text-secondary)',
+              border: topTab === tab.id ? '1px solid #D4AF37' : '1px solid var(--border-subtle)',
+              borderRadius: '8px', padding: '8px 18px', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px', color: '#D4AF37' }}>
+          <Loader2 className="spin-icon" size={28} /><span>Загрузка ТОП-100...</span>
+        </div>
+      ) : catalog.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Ничего не найдено.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {catalog.map((item, idx) => (
+            <div
+              key={item.id || item.anime_id || idx}
+              className="card-amoled"
+              onClick={() => onAnimeClick(item)}
+              style={{ padding: '14px', display: 'flex', gap: '16px', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: idx === 0 ? '#D4AF37' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--bg-surface)', color: idx < 3 ? '#000' : 'var(--text-secondary)', fontWeight: 900, fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                #{idx + 1}
+              </div>
+              <img
+                src={item.posterUrl || (item.poster?.medium ? `https:${item.poster.medium}` : 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg')}
+                alt=""
+                style={{ width: '64px', height: '90px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title}
+                  </h4>
+                  <span className="badge-gold">★ {item.rating?.average ? item.rating.average.toFixed(1) : (item.rating || '9.5')}</span>
+                  <span className="badge-burgundy">{item.type?.name || item.type || topTab.toUpperCase()}</span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {item.description}
+                </p>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {item.status?.title || item.status || 'Завершён'} • {item.year || item.yearSeason || '2024'}
+                </div>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); openPlayer(item); }}
+                className="btn-gold"
+                style={{ padding: '8px 16px', fontSize: '0.85rem', flexShrink: 0 }}
+              >
+                ▶ Смотреть
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CollectionsView({ onAnimeClick, openPlayer }) {
   const [selectedTab, setSelectedTab] = useState('collections');
   const [resolvingId, setResolvingId] = useState(null);
@@ -512,6 +637,7 @@ function MainAppContent() {
 
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home },
+    { id: 'top100', label: 'ТОП-100', icon: Award },
     { id: 'discover', label: 'Открытия', icon: Compass },
     { id: 'popular', label: 'Популярное', icon: Flame },
     { id: 'collections', label: 'Коллекции', icon: BookOpen },
@@ -537,9 +663,10 @@ function MainAppContent() {
     if (activeNav === 'profile') return <ProfileView onPlaySample={handleAnimeClick} />;
     if (activeNav === 'schedule') return <ScheduleView onSelectAnime={handleAnimeClick} />;
     
+    if (activeNav === 'top100') return <Top100View onAnimeClick={handleAnimeClick} openPlayer={openPlayer} />;
     if (activeNav === 'discover') return <DiscoverView onAnimeClick={handleAnimeClick} />;
-    if (activeNav === 'popular') return <PopularView onAnimeClick={handleAnimeClick} />;
-    if (activeNav === 'collections') return <CollectionsView onAnimeClick={handleAnimeClick} />;
+    if (activeNav === 'popular') return <PopularView onAnimeClick={handleAnimeClick} openPlayer={openPlayer} />;
+    if (activeNav === 'collections') return <CollectionsView onAnimeClick={handleAnimeClick} openPlayer={openPlayer} />;
     if (activeNav === 'bookmarks') return <BookmarksView onAnimeClick={handleAnimeClick} />;
     if (activeNav === 'downloads') return <DownloadsView />;
 

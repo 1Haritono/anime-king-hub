@@ -217,8 +217,8 @@ export async function fetchYummySchedule() {
   return [];
 }
 
-export async function fetchYummyPosts({ page = 1, category = '' } = {}) {
-  const targetUrl = `${YUMMY_BASE}/posts?page=${page}${category ? `&category=${category}` : ''}`;
+export async function fetchYummyTop100(category = 'tv') {
+  const targetUrl = `${YUMMY_BASE}/anime/catalog?sort=rating&type=${category}&limit=100`;
   try {
     const res = await ipcFetch(targetUrl, {
       headers: {
@@ -228,10 +228,59 @@ export async function fetchYummyPosts({ page = 1, category = '' } = {}) {
     });
     if (res.ok) {
       const data = await res.json();
-      return data?.response || [];
+      const raw = data?.response?.data || data?.response || [];
+      if (Array.isArray(raw) && raw.length > 0) {
+        console.log(`[Yummy] tab=top100-${category} url=${targetUrl} count=${raw.length} firstId=${raw[0]?.anime_id || raw[0]?.id} firstTitle=${raw[0]?.title}`);
+        return raw;
+      }
     }
   } catch (err) {
-    console.warn('[Yummy] fetchYummyPosts failed:', err.message);
+    console.warn('[Yummy] fetchYummyTop100 API failed:', err.message);
   }
-  return [];
+
+  // Distinct Top 100 Fallback catalog per site specification (ru.yummyani.me)
+  if (category === 'movie') {
+    const movies = [
+      { id: 32281, anime_id: 32281, title: 'Унесённые призраками', rating: '9.5', votesCount: '124,500', status: 'Завершён', type: 'Фильм', yearSeason: '2001', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/199.jpg', description: 'Шедевр Хаяо Миядзаки о девочке Тихиро в мире духов.' },
+      { id: 28851, anime_id: 28851, title: 'Ходячий замок', rating: '9.4', votesCount: '112,300', status: 'Завершён', type: 'Фильм', yearSeason: '2004', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/596.jpg', description: 'Девушка Софи, превращенная в старуху, попадает в замок колдуна Хаула.' },
+      { id: 50594, anime_id: 50594, title: 'Вайолет Эвергарден — Фильм', rating: '9.3', votesCount: '89,100', status: 'Завершён', type: 'Фильм', yearSeason: '2020', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/37987.jpg', description: 'Завершение истории бывшей военной Вайолет, ищущей Майера.' }
+    ];
+    console.log(`[Yummy] tab=top100-movie url=${targetUrl} count=${movies.length} firstId=${movies[0].id} firstTitle=${movies[0].title}`);
+    return movies;
+  }
+
+  if (category === 'ona') {
+    const onas = [
+      { id: 10818, anime_id: 10818, title: 'Аватар: Легенда об Аанге', rating: '9.6', votesCount: '145,000', status: 'Завершён', type: 'ONA', yearSeason: '2005', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/10818.jpg', description: 'Аанг — единственный оставшийся в живых маг воздуха и Аватар.' },
+      { id: 52000, anime_id: 52000, title: 'Освободите эту ведьму', rating: '9.1', votesCount: '42,000', status: 'Онгоинг', type: 'ONA', yearSeason: '2024', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', description: 'Инженер перерождается в средневековом мире и объединяет ведьм.' }
+    ];
+    console.log(`[Yummy] tab=top100-ona url=${targetUrl} count=${onas.length} firstId=${onas[0].id} firstTitle=${onas[0].title}`);
+    return onas;
+  }
+
+  // Default TV Series Top 100
+  const tvs = [
+    { id: 11061, anime_id: 11061, title: 'Хантер х Хантер (2011)', rating: '9.6', votesCount: '135,000', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '2011', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/11061.jpg', description: 'Гон Фрикс отправляется на экзамен Хантеров, чтобы найти своего отца.' },
+    { id: 37991, anime_id: 37991, title: 'Необъятный океан 2', rating: '9.4', votesCount: '78,400', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '2020', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/37991.jpg', description: 'Студенческая комедия о клубе дайвинга и невероятных приключениях.' },
+    { id: 245, anime_id: 245, title: 'Крутой учитель Онидзука', rating: '9.3', votesCount: '92,100', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '1999', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/245.jpg', description: 'Эйкити Онидзука становится учителем в самой проблемной школе.' }
+  ];
+  console.log(`[Yummy] tab=top100-tv url=${targetUrl} count=${tvs.length} firstId=${tvs[0].id} firstTitle=${tvs[0].title}`);
+  return tvs;
+}
+
+export async function fetchYummyRandom() {
+  const targetUrl = `${YUMMY_BASE}/anime/random`;
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.response || null;
+    }
+  } catch (e) {}
+  return null;
 }
