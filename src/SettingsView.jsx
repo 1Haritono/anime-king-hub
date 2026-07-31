@@ -28,6 +28,9 @@ export default function SettingsView({ isMpvConnected = false, themeMode = 'amol
         <button onClick={() => setActiveSection('anixart')} className={`app-sidebar-nav-btn ${activeSection === 'anixart' ? 'active' : ''}`}>
           <DownloadCloud size={18} /> Импорт списков
         </button>
+        <button onClick={() => setActiveSection('updates')} className={`app-sidebar-nav-btn ${activeSection === 'updates' ? 'active' : ''}`}>
+          <RefreshCw size={18} /> Автообновление
+        </button>
       </div>
 
       {/* Main Settings Panel — BUG-2: Uses settings-panel class */}
@@ -106,6 +109,32 @@ export default function SettingsView({ isMpvConnected = false, themeMode = 'amol
 
         {/* ANIXART */}
         {activeSection === 'anixart' && <AnixartImportView />}
+
+        {/* UPDATES */}
+        {activeSection === 'updates' && (
+          <div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#D4AF37', marginBottom: '8px' }}>
+              Автообновление (electron-updater)
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Текущая версия приложения: <strong style={{ color: '#FFF' }}>v1.5.0</strong>
+            </p>
+            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '20px' }}>
+              <button
+                onClick={() => {
+                  if (window.require) {
+                    const { ipcRenderer } = window.require('electron');
+                    ipcRenderer.send('check-for-updates');
+                  }
+                }}
+                className="btn-gold"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                <RefreshCw size={16} /> Проверить обновления вручную
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

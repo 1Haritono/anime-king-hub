@@ -495,7 +495,7 @@ function MainAppContent() {
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Anime King Hub — Desktop Application</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             
-            {/* FEATURE-13: In-App Auto-Updater Button */}
+            {/* FEATURE-13: In-App Auto-Updater Button (Strict UI rule: Only visible when update is available/downloading/downloaded) */}
             {updaterState.status === 'downloading' ? (
               <span className="update-btn-toolbar" style={{ backgroundColor: 'var(--bg-surface)' }}>
                 <Loader2 size={12} className="spin-icon" /> Скачивание... {updaterState.percent}%
@@ -506,13 +506,9 @@ function MainAppContent() {
               </button>
             ) : updaterState.status === 'available' ? (
               <button onClick={startDownloadUpdate} className="update-btn-toolbar">
-                <DownloadCloud size={12} /> Скачать {updaterState.version}
+                <DownloadCloud size={12} /> Скачать {updaterState.version || ''}
               </button>
-            ) : (
-              <button onClick={triggerUpdateCheck} className="update-btn-toolbar" title="Проверить обновления (electron-updater)">
-                <DownloadCloud size={12} /> Обновить
-              </button>
-            )}
+            ) : null}
 
             <button className="icon-btn" onClick={() => setIsWatchPartyOpen(true)} title="Watch Party"><Users size={16} color={isWatchPartyOpen ? '#D4AF37' : 'var(--text-secondary)'} /></button>
             <button className="icon-btn" onClick={() => navigateTo('schedule')} title="Расписание"><Calendar size={16} color={activeNav === 'schedule' && !selectedAnime ? '#D4AF37' : 'var(--text-secondary)'} /></button>

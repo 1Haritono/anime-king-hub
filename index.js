@@ -135,8 +135,28 @@ ipcMain.on('quit-and-install-update', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 app.whenReady().then(() => {
   createWindow();
+
+  // Silent auto update check 4 seconds after app ready in production
+  if (process.env.NODE_ENV !== 'development' && app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.warn('[autoUpdater] Initial check error:', err.message);
+      });
+    }, 4000);
+
+    // Periodic check every 6 hours
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.warn('[autoUpdater] Periodic check error:', err.message);
+      });
+    }, 6 * 60 * 60 * 1000);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
