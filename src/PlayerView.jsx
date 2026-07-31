@@ -40,12 +40,17 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     { name: 'Плеер CVH', epBadge: '12 / 12' }
   ]);
 
-  // Resolve stream URL per selected player & dub (BUG-19 / BUG-19b Fix)
+  // Resolve stream URL per selected player & dub
   const resolveAndSetStream = async (player, dub, videos = yummyVideos) => {
     setStreamError(null);
+    if (!anime?.id) {
+      setStreamError('Нет ID тайтла');
+      return;
+    }
+
     console.log('[RAW Stream Request LOG]', {
-      animeId: anime?.id || 5114,
-      title: anime?.title || 'Атака Титанов: Финал',
+      animeId: anime.id,
+      title: anime.title || 'Просмотр аниме',
       episode: selectedEpisode,
       dub: dub,
       player: player,
@@ -55,7 +60,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     const cleanDubName = dub.replace(/^Озвучка\s+/, '');
     const cleanPlayerName = player.replace(/^Плеер\s+/, '');
 
-    // Strict matching (BUG-22): Require dubbing, episode, AND player name to match
+    // Strict matching: Require dubbing, episode, AND player name to match
     const matchedVid = videos.find(v => 
       (v.dubbing.toLowerCase().includes(cleanDubName.toLowerCase()) || cleanDubName.toLowerCase().includes(v.dubbing.toLowerCase())) &&
       String(v.episodeNumber) === String(selectedEpisode) &&
@@ -73,22 +78,32 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     }
 
     let targetUrl = matchedVid.iframeUrl;
+
+    if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
+      try {
+        if (targetUrl.includes('<iframe') || targetUrl.includes('.html') || targetUrl.startsWith('http')) {
+          console.warn('[mpvBridge] Passing HTML/embed URL to mpv:', targetUrl);
+        }
+        mpvBridge.loadUrl(targetUrl);
+      } catch (e) {
+        console.warn('mpvBridge error:', e);
+      }
+    }
     
-    // Perform pre-flight check to get exact raw responses and diagnose provider errors (BUG-20a, BUG-20b, BUG-23)
+    // Perform pre-flight check to diagnose provider errors
     try {
       const res = await ipcFetch(targetUrl);
       const htmlText = await res.text();
 
-      // BUG-20a: Log RAW stream request & response per provider
       if (player === 'Плеер Alloha' || player === 'Плеер Kodik') {
         console.log(`[RAW Player Request - ${cleanPlayerName}]`, {
           endpoint: targetUrl,
           headers: { Referer: 'https://shikimori.one/', 'User-Agent': navigator.userAgent },
-          animeId: anime?.id || 5114, episode: selectedEpisode, dub
+          animeId: anime.id, episode: selectedEpisode, dub
         });
         const hasErrorCode2 = htmlText.includes('Error code: 2');
         console.log(`[RAW Player Response - ${cleanPlayerName}]`, {
-          status: res.status, rawTextContainsErrorCode2: hasErrorCode2, note: hasErrorCode2 ? 'Provider internal embed page literally returned "Error code: 2"' : 'Provider returned valid HTML'
+          status: res.status, rawTextContainsErrorCode2: hasErrorCode2, note: hasErrorCode2 ? 'Provider internal embed page returned "Error code: 2"' : 'Provider returned valid HTML'
         });
         
         if (hasErrorCode2) {
@@ -96,12 +111,11 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           return;
         }
       } 
-      // BUG-20b: VK "Видеофайл не найден" check
       else if (player === 'Плеер CVH') {
         console.log('[RAW Player Request - CVH/VK]', {
           endpoint: targetUrl,
           headers: { Referer: 'https://vk.com/', 'User-Agent': navigator.userAgent },
-          animeId: anime?.id || 5114, episode: selectedEpisode, dub
+          animeId: anime.id, episode: selectedEpisode, dub
         });
         const isVkMissing = htmlText.includes('Видеофайл не найден');
         console.log('[RAW Player Response - CVH/VK]', {
@@ -121,9 +135,6 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     }
 
     setActiveStreamUrl(targetUrl);
-    if (mpvBridge && typeof mpvBridge.loadUrl === 'function') {
-      try { mpvBridge.loadUrl(targetUrl); } catch (e) {}
-    }
   };
 
   // Load Real Streams from API
@@ -131,8 +142,14 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     let isMounted = true;
 
     const loadVideoStream = async () => {
+      if (!anime?.id) {
+        setIsYummyLoading(false);
+        setStreamError('Нет ID тайтла');
+        return;
+      }
+
       setIsYummyLoading(true);
-      const titleId = anime?.id || 5114;
+      const titleId = anime.id;
 
       try {
         const yummyDetails = await fetchYummyAnimeDetails(titleId, true);
@@ -152,29 +169,35 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
             playerMap.set(pName, (playerMap.get(pName) || 0) + 1);
           });
 
+          let firstDub = selectedDub;
+          let firstPlayer = selectedPlayer;
+
           if (dubMap.size > 0) {
             const dynamicDubs = Array.from(dubMap.keys()).map((dName, idx) => ({
               name: dName,
-              epBadge: `${dubMap.get(dName)} / 12`,
+              epBadge: `${dubMap.get(dName)} эп.`,
               views: `${(100 - idx * 18).toFixed(1)}K`,
               popularityPercent: Math.max(10, 90 - idx * 20)
             }));
             setDubList(dynamicDubs);
-            setSelectedDub(dynamicDubs[0].name);
+            firstDub = dynamicDubs[0]?.name ?? selectedDub;
+            setSelectedDub(firstDub);
           }
 
           if (playerMap.size > 0) {
             const dynamicPlayers = Array.from(playerMap.keys()).map(pName => ({
               name: pName,
-              epBadge: '12 / 12'
+              epBadge: `${playerMap.get(pName)} эп.`
             }));
             setPlayerList(dynamicPlayers);
-            setSelectedPlayer(dynamicPlayers[0].name);
+            firstPlayer = dynamicPlayers[0]?.name ?? selectedPlayer;
+            setSelectedPlayer(firstPlayer);
           }
 
-          resolveAndSetStream(selectedPlayer, selectedDub, parsed);
+          // FIX (2): Avoid STALE STATE on initial stream resolution
+          await resolveAndSetStream(firstPlayer, firstDub, parsed);
           setIsYummyLoading(false);
-          logEpisodeWatch(anime, selectedEpisode, selectedDub, selectedPlayer);
+          logEpisodeWatch(anime, selectedEpisode, firstDub, firstPlayer);
         } else if (isMounted) {
           setStreamError('Видео не найдены для данного тайтла.');
           setIsYummyLoading(false);
@@ -182,7 +205,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
       } catch (err) {
         if (isMounted) {
           console.warn('YummyAnime API load error:', err.message);
-          setStreamError('Ошибка загрузки данных YummyAnime.');
+          setStreamError(`Ошибка загрузки данных YummyAnime: ${err.message}`);
           setIsYummyLoading(false);
         }
       }
@@ -191,13 +214,12 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
     loadVideoStream();
 
     // Check saved playback position
-    const savedPos = getPlaybackPosition(anime?.id || 5114, selectedEpisode);
-    if (savedPos > 0) {
-      setSavedPositionSeconds(savedPos);
-      setShowResumeOverlay(true);
-    } else {
-      setShowResumeOverlay(true);
-      setSavedPositionSeconds(23);
+    if (anime?.id) {
+      const savedPos = getPlaybackPosition(anime.id, selectedEpisode);
+      if (savedPos > 0) {
+        setSavedPositionSeconds(savedPos);
+        setShowResumeOverlay(true);
+      }
     }
 
   }, [anime, selectedEpisode]);
@@ -380,34 +402,48 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
         </div>
       </div>
 
-      {/* FEATURE-17: Reference Episode Number Tabs Row */}
+      {/* Dynamic Episode Number Tabs Row */}
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px 0', scrollbarWidth: 'none' }}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(ep => {
-          const isSelected = selectedEpisode === ep;
-          const isFullyWatched = ep < 3;
+        {(() => {
+          const episodeList = Array.from(
+            new Set(yummyVideos.map(v => parseInt(v.episodeNumber, 10)).filter(n => !isNaN(n)))
+          ).sort((a, b) => a - b);
 
-          return (
-            <button
-              key={ep}
-              onClick={() => {
-                setSelectedEpisode(ep);
-                logEpisodeWatch(anime, ep, selectedDub, selectedPlayer);
-                savePlaybackPosition(anime?.id || 5114, ep, 0);
-              }}
-              style={{
-                minWidth: '46px', height: '38px', borderRadius: '8px',
-                backgroundColor: isSelected ? '#424242' : 'var(--bg-card)',
-                color: 'var(--text-primary)',
-                border: isSelected ? '2px solid #4CAF50' : '1px solid var(--border-subtle)',
-                borderBottom: isFullyWatched ? '3px solid #E53935' : (isSelected ? '2px solid #4CAF50' : '1px solid var(--border-subtle)'),
-                fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >
-              {ep}
-            </button>
-          );
-        })}
+          if (episodeList.length === 0) {
+            return (
+              <div style={{ padding: '6px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Эпизоды не найдены
+              </div>
+            );
+          }
+
+          return episodeList.map(ep => {
+            const isSelected = selectedEpisode === ep;
+            const isFullyWatched = false;
+
+            return (
+              <button
+                key={ep}
+                onClick={() => {
+                  setSelectedEpisode(ep);
+                  logEpisodeWatch(anime, ep, selectedDub, selectedPlayer);
+                  if (anime?.id) savePlaybackPosition(anime.id, ep, 0);
+                }}
+                style={{
+                  minWidth: '46px', height: '38px', borderRadius: '8px',
+                  backgroundColor: isSelected ? '#424242' : 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  border: isSelected ? '2px solid #4CAF50' : '1px solid var(--border-subtle)',
+                  borderBottom: isFullyWatched ? '3px solid #E53935' : (isSelected ? '2px solid #4CAF50' : '1px solid var(--border-subtle)'),
+                  fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                {ep}
+              </button>
+            );
+          });
+        })()}
       </div>
 
       {/* Player Viewport Container */}
@@ -416,7 +452,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
         borderRadius: '12px', position: 'relative', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.8)'
       }}>
 
-        {/* Saved Position Overlay (FEATURE-14/17 Reference Screenshot) */}
+        {/* Saved Position Overlay */}
         {showResumeOverlay && (
           <div style={{
             position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)',
@@ -480,7 +516,7 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
             style={{ width: '100%', height: '100%', border: 'none' }}
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
             onError={() => {
               console.warn('[Player Iframe Error] Triggering fallback chain...');
               handleTriggerFallbackChain();
