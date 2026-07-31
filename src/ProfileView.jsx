@@ -129,50 +129,80 @@ export default function ProfileView({ onPlaySample }) {
           <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.88rem', cursor: 'pointer' }}>Показать все</button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'center', gap: '24px' }}>
           {/* Left Stats Counts */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minWidth: '200px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.95rem' }}>
-              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#4CAF50' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#4285F4' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Смотрю</span>
               <span style={{ fontWeight: 800, marginLeft: 'auto' }}>{statusCounts.watching}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.95rem' }}>
-              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#9C27B0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#AB47BC' }} />
               <span style={{ color: 'var(--text-secondary)' }}>В планах</span>
               <span style={{ fontWeight: 800, marginLeft: 'auto' }}>{statusCounts.planned}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.95rem' }}>
-              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#5C6BC0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#66BB6A' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Просмотрено</span>
               <span style={{ fontWeight: 800, marginLeft: 'auto' }}>{statusCounts.completed}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.95rem' }}>
-              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#FFB300' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#FFA726' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Отложено</span>
               <span style={{ fontWeight: 800, marginLeft: 'auto' }}>{statusCounts.onHold}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.95rem' }}>
-              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#E53935' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#EF5350' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Брошено</span>
               <span style={{ fontWeight: 800, marginLeft: 'auto' }}>{statusCounts.dropped}</span>
             </div>
           </div>
 
-          {/* Right SVG Donut Chart Matching Screenshot */}
-          <div style={{ position: 'relative', width: '140px', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="140" height="140" viewBox="0 0 42 42">
-              <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#262626" strokeWidth="6" />
-              {/* Completed (Indigo) */}
-              <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#5C6BC0" strokeWidth="6"
-                strokeDasharray={`${pCompleted} ${100 - pCompleted}`} strokeDashoffset="25" />
-              {/* Planned (Purple) */}
-              <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#9C27B0" strokeWidth="6"
-                strokeDasharray={`${pPlanned} ${100 - pPlanned}`} strokeDashoffset={`${25 - pCompleted}`} />
-              {/* Watching (Green) */}
-              <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#4CAF50" strokeWidth="6"
-                strokeDasharray={`${pWatching} ${100 - pWatching}`} strokeDashoffset={`${25 - pCompleted - pPlanned}`} />
-            </svg>
+          {/* Center SVG Donut Chart with total anime count in middle */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: '130px', height: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="130" height="130" viewBox="0 0 42 42">
+                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#262626" strokeWidth="5" />
+                {/* Completed */}
+                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#66BB6A" strokeWidth="5"
+                  strokeDasharray={`${pCompleted} ${100 - pCompleted}`} strokeDashoffset="25" />
+                {/* Planned */}
+                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#AB47BC" strokeWidth="5"
+                  strokeDasharray={`${pPlanned} ${100 - pPlanned}`} strokeDashoffset={`${25 - pCompleted}`} />
+                {/* Watching */}
+                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#4285F4" strokeWidth="5"
+                  strokeDasharray={`${pWatching} ${100 - pWatching}`} strokeDashoffset={`${25 - pCompleted - pPlanned}`} />
+              </svg>
+              <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
+                  {totalStatusCount}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>аниме</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Metrics List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>● Серий</span>
+              <span style={{ fontWeight: 800, marginLeft: 'auto', color: 'var(--text-primary)' }}>{totalEpisodes}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>● Просмотра</span>
+              <span style={{ fontWeight: 800, marginLeft: 'auto', color: 'var(--text-primary)' }}>
+                {Math.floor(totalWatchHours / 24)} д. {totalWatchHours % 24} ч.
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>● Друзей</span>
+              <span style={{ fontWeight: 800, marginLeft: 'auto', color: 'var(--text-primary)' }}>3</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>● Регистрация</span>
+              <span style={{ fontWeight: 800, marginLeft: 'auto', color: 'var(--text-primary)' }}>25 апр. 2023</span>
+            </div>
           </div>
         </div>
       </div>
