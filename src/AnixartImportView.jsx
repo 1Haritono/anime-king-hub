@@ -129,14 +129,49 @@ export default function AnixartImportView({ onImportComplete }) {
         </div>
       </div>
 
-      {/* BUG-3: Button-based flow instead of raw login form */}
+      {/* B4: Live Sync mode alongside File Backup Fallback */}
+      <div style={{ backgroundColor: 'var(--bg-card, #0D0D0D)', border: '1px solid #D4AF37', borderRadius: '10px', padding: '20px', marginBottom: '24px' }}>
+        <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '8px', color: '#D4AF37' }}>
+          Прямая синхронизация профиля Anixart (Live Sync)
+        </h4>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          Авторизуйтесь под своей учетной записью Anixart для мгновенной загрузки и обратной записи ваших списков («Смотрю», «В планах», «Просмотрено»).
+        </p>
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          const loginVal = e.target.login.value;
+          const passVal = e.target.password.value;
+          try {
+            setSyncStatus({ type: 'info', msg: 'Авторизация и получение списков Anixart...' });
+            const { loginAnixart } = await import('./anixartApi');
+            const { pullFromAnixart } = await import('./listSyncService');
+            await loginAnixart(loginVal, passVal);
+            const ok = await pullFromAnixart();
+            if (ok) {
+              setSyncStatus({ type: 'success', msg: 'Успешно синхронизировано с Anixart! Профиль и списки обновлены.' });
+              if (onImportComplete) onImportComplete();
+            } else {
+              setSyncStatus({ type: 'error', msg: 'Не удалось загрузить списки Anixart.' });
+            }
+          } catch (err) {
+            setSyncStatus({ type: 'error', msg: err.message });
+          }
+        }} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input name="login" type="text" placeholder="Логин / Email Anixart" required style={{ backgroundColor: '#1E1E1E', border: '1px solid #333', color: '#FFF', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem' }} />
+          <input name="password" type="password" placeholder="Пароль" required style={{ backgroundColor: '#1E1E1E', border: '1px solid #333', color: '#FFF', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem' }} />
+          <button type="submit" className="btn-gold" style={{ padding: '8px 16px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 700 }}>
+            Войти и синхронизировать
+          </button>
+        </form>
+      </div>
+
       <div style={{ backgroundColor: 'var(--bg-card, #0D0D0D)', border: '1px solid rgba(92, 6, 28, 0.4)', borderRadius: '10px', padding: '20px', marginBottom: '24px' }}>
         <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
-          \u0428\u0430\u0433 1. \u042d\u043a\u0441\u043f\u043e\u0440\u0442\u0438\u0440\u0443\u0439\u0442\u0435 \u0441\u043f\u0438\u0441\u043e\u043a \u0438\u0437 Anixart
+          Или экспортируйте резервную копию файлов
         </h4>
         <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
-          \u0412 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438 Anixart: \u041f\u0440\u043e\u0444\u0438\u043b\u044c \u2192 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u2192 \u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0430\u044f \u043a\u043e\u043f\u0438\u044f \u2192 \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0444\u0430\u0439\u043b (JSON \u0438\u043b\u0438 CSV).
-          <br />\u0417\u0430\u0442\u0435\u043c \u0441\u043a\u0438\u043d\u044c\u0442\u0435 \u0444\u0430\u0439\u043b \u043d\u0430 \u0435\u0442\u043e\u0442 \u043a\u043e\u043c\u043f\u044c\u044e\u0442\u0435\u0440 (\u0447\u0435\u0440\u0435\u0437 \u041f\u041a / Telegram / \u043e\u0431\u043b\u0430\u043a\u043e).
+          В приложении Anixart: Профиль → Настройки → Резервная копия → Сохранить файл (JSON или CSV).
+          <br />Затем скиньте файл на этот компьютер (через ПК / Telegram / облако).
         </p>
         <button
           onClick={handleOpenAnixart}

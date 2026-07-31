@@ -21,6 +21,8 @@ function setStorage(key, val) {
   }
 }
 
+import { pushProgressToAnixart } from './listSyncService';
+
 // Log episode viewing
 export function logEpisodeWatch(anime, episodeNum, dubName = 'Озвучка РуАниме / DEEP', playerName = 'Плеер Alloha', durationMinutes = 24) {
   if (!anime || !anime.id) return;
@@ -50,6 +52,11 @@ export function logEpisodeWatch(anime, episodeNum, dubName = 'Озвучка Р�
   history.unshift(record);
   // Keep last 200 logs
   setStorage(STORAGE_KEY, history.slice(0, 200));
+
+  // Push progress to Anixart if anixartId exists
+  if (anime.anixartId || anime.id) {
+    pushProgressToAnixart(anime.anixartId || anime.id, Number(episodeNum)).catch(e => {});
+  }
 }
 
 // Save playback timestamp

@@ -40,7 +40,24 @@ export default function ProfileView({ onPlaySample }) {
     }
   };
 
-  const { statusCounts, totalEpisodes, totalWatchHours, recentHistory, ratings } = analytics;
+  const getCollectionCount = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw).length : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  const statusCounts = {
+    watching: getCollectionCount('collection_watching') || analytics.statusCounts.watching,
+    planned: getCollectionCount('collection_planned') || analytics.statusCounts.planned,
+    completed: getCollectionCount('collection_completed') || analytics.statusCounts.completed,
+    onHold: getCollectionCount('collection_onhold') || analytics.statusCounts.onHold,
+    dropped: getCollectionCount('collection_dropped') || analytics.statusCounts.dropped
+  };
+
+  const { totalEpisodes, totalWatchHours, recentHistory, ratings } = analytics;
 
   // Donut SVG calculations
   const totalStatusCount = statusCounts.watching + statusCounts.planned + statusCounts.completed + statusCounts.onHold + statusCounts.dropped || 1;
