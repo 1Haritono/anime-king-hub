@@ -169,6 +169,10 @@ export async function fetchShikimoriAnimeDetails(id) {
       if (yummyData) {
         const rawPoster = yummyData.poster?.big || yummyData.poster?.medium || yummyData.poster?.small || '';
         const posterUrl = rawPoster ? (rawPoster.startsWith('//') ? `https:${rawPoster}` : rawPoster) : '';
+        const statusStr = typeof yummyData.anime_status === 'object' ? (yummyData.anime_status?.title || 'Завершён') : (yummyData.anime_status === 'released' ? 'Завершён' : 'Онгоинг');
+        const typeStr = typeof yummyData.type === 'object' ? (yummyData.type?.name || yummyData.type?.shortname || 'ТВ-сериал') : (yummyData.type || 'ТВ-сериал');
+        const ageStr = typeof yummyData.min_age === 'object' ? (yummyData.min_age?.title || '16+') : (yummyData.min_age ? `${yummyData.min_age}+` : '16+');
+
         return {
           id: yummyData.anime_id,
           mal_id: yummyData.remote_ids?.shikimori_id || yummyData.anime_id,
@@ -177,9 +181,9 @@ export async function fetchShikimoriAnimeDetails(id) {
           rating: yummyData.rating?.average ? yummyData.rating.average.toFixed(1) : '8.5',
           votesCount: yummyData.views ? yummyData.views.toLocaleString() : '12,450',
           kinopoiskRating: yummyData.rating?.average ? (yummyData.rating.average - 0.2).toFixed(1) : '8.3',
-          ageRating: yummyData.min_age ? `${yummyData.min_age}+` : '16+',
-          status: yummyData.anime_status === 'released' ? 'Завершён' : 'Онгоинг',
-          type: yummyData.type || 'ТВ-сериал',
+          ageRating: ageStr,
+          status: statusStr,
+          type: typeStr,
           yearSeason: yummyData.year ? String(yummyData.year) : '2024',
           studio: 'Аниме Студия',
           director: 'Режиссер',

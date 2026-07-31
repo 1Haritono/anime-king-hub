@@ -17,8 +17,12 @@ export async function ipcFetch(url, options = {}) {
     };
   }
   
-  // Browser fallback (will likely fail CORS for protected endpoints, expected in Electron app)
-  return fetch(url, options);
+  // Browser fallback: Use local Vite proxy for YummyAnime API to bypass CORS in dev server
+  const browserUrl = url.startsWith('https://api.yani.tv') 
+    ? url.replace('https://api.yani.tv', '/yani-api') 
+    : url;
+
+  return fetch(browserUrl, options);
 }
 
 export async function fetchYummyAnimeDetails(animeId, needVideos = true) {
@@ -85,6 +89,10 @@ export async function fetchYummyAnimeList({ page = 1, search = '' } = {}) {
       return list.map(item => {
         const rawPoster = item.poster?.big || item.poster?.medium || item.poster?.small || '';
         const posterUrl = rawPoster ? (rawPoster.startsWith('//') ? `https:${rawPoster}` : rawPoster) : '';
+        const statusStr = typeof item.anime_status === 'object' ? (item.anime_status?.title || 'Завершён') : (item.anime_status === 'released' ? 'Завершён' : 'Онгоинг');
+        const typeStr = typeof item.type === 'object' ? (item.type?.name || item.type?.shortname || 'ТВ-сериал') : (item.type || 'ТВ-сериал');
+        const ageStr = typeof item.min_age === 'object' ? (item.min_age?.title || '16+') : (item.min_age ? `${item.min_age}+` : '16+');
+
         return {
           id: item.anime_id,
           mal_id: item.remote_ids?.shikimori_id || item.anime_id,
@@ -93,9 +101,9 @@ export async function fetchYummyAnimeList({ page = 1, search = '' } = {}) {
           rating: item.rating?.average ? item.rating.average.toFixed(1) : '8.5',
           votesCount: item.views ? item.views.toLocaleString() : '12,450',
           kinopoiskRating: item.rating?.average ? (item.rating.average - 0.2).toFixed(1) : '8.3',
-          ageRating: item.min_age ? `${item.min_age}+` : '16+',
-          status: item.anime_status === 'released' ? 'Завершён' : 'Онгоинг',
-          type: item.type || 'ТВ-сериал',
+          ageRating: ageStr,
+          status: statusStr,
+          type: typeStr,
           yearSeason: item.year ? String(item.year) : '2024',
           studio: 'Аниме Студия',
           director: 'Режиссер',
