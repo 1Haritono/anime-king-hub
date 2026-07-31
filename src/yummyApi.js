@@ -54,7 +54,7 @@ export async function fetchYummyAnimeDetails(animeId, needVideos = true) {
 
     if (res.status === 429 || res.status >= 500) {
       console.warn(`YummyAnime: server error or rate limited (${res.status})`);
-      return null;
+      throw new Error(`YummyAnime: server error or rate limited (${res.status})`);
     }
 
     if (res.ok) {
