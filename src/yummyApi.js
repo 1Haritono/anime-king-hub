@@ -174,7 +174,64 @@ export async function fetchYummyAnimeList({ page = 1, search = '', order = 'popu
       return list;
     }
   } catch (err) {
-    console.warn('YummyAnime catalog fetch failed:', err.message);
+    console.warn('[Yummy] fetchYummyAnimeList failed:', err.message);
+  }
+  return [];
+}
+
+export async function fetchYummyCatalog({ page = 1, limit = 20, sort = 'popularity', alias = '', genre = '' } = {}) {
+  let targetUrl = `${YUMMY_BASE}/anime/catalog?page=${page}&limit=${limit}${sort ? `&sort=${sort}` : ''}${alias ? `&alias=${alias}` : ''}${genre ? `&genre=${genre}` : ''}`;
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.response?.data || data?.response || [];
+    }
+  } catch (err) {
+    console.warn('[Yummy] fetchYummyCatalog failed:', err.message);
+  }
+  return [];
+}
+
+export async function fetchYummySchedule() {
+  const targetUrl = `${YUMMY_BASE}/anime/schedule`;
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.response || [];
+    }
+  } catch (err) {
+    console.warn('[Yummy] fetchYummySchedule failed:', err.message);
+  }
+  return [];
+}
+
+export async function fetchYummyPosts({ page = 1, category = '' } = {}) {
+  const targetUrl = `${YUMMY_BASE}/posts?page=${page}${category ? `&category=${category}` : ''}`;
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.response || [];
+    }
+  } catch (err) {
+    console.warn('[Yummy] fetchYummyPosts failed:', err.message);
   }
   return [];
 }

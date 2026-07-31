@@ -532,19 +532,31 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
             </button>
           </div>
         ) : (
-          <iframe
-            key={activeStreamUrl}
-            src={activeStreamUrl}
-            title="Anime Video Stream"
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            allowFullScreen
-            allow="autoplay; encrypted-media; picture-in-picture"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-            onError={() => {
-              console.warn('[Player Iframe Error] Triggering fallback chain...');
-              handleTriggerFallbackChain();
-            }}
-          />
+          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <iframe
+              key={activeStreamUrl}
+              src={activeStreamUrl}
+              title="Anime Video Stream"
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              allowFullScreen
+              allow="autoplay; encrypted-media; picture-in-picture"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+              onError={() => {
+                console.warn('[Player Iframe Error] Triggering fallback chain...');
+                handleTriggerFallbackChain();
+              }}
+            />
+
+            {/* Anime King Hub Internal Ad Slot Banner */}
+            <div style={{
+              position: 'absolute', bottom: '12px', right: '16px',
+              backgroundColor: 'rgba(18, 18, 18, 0.85)', border: '1px solid var(--border-burgundy)',
+              borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px',
+              color: '#FF85A2', fontSize: '0.75rem', fontWeight: 700, backdropFilter: 'blur(4px)', pointerEvents: 'none'
+            }}>
+              <span>👑 Anime King Hub VIP Banner Slot</span>
+            </div>
+          </div>
         )}
       </div>
 
