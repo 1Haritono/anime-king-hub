@@ -67,3 +67,45 @@ export function parseYummyVideos(videosArray = []) {
     };
   });
 }
+
+export async function fetchYummyAnimeList({ page = 1, search = '' } = {}) {
+  let targetUrl = search ? `${YUMMY_BASE}/search?q=${encodeURIComponent(search)}` : `${YUMMY_BASE}/anime${page ? `?page=${page}` : ''}`;
+  
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'X-User-Token': YUMMY_APP_TOKEN
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const list = data?.response || [];
+      return list.map(item => {
+        const rawPoster = item.poster?.big || item.poster?.medium || item.poster?.small || '';
+        const posterUrl = rawPoster ? (rawPoster.startsWith('//') ? `https:${rawPoster}` : rawPoster) : '';
+        return {
+          id: item.anime_id,
+          mal_id: item.remote_ids?.shikimori_id || item.anime_id,
+          title: item.title,
+          originalTitle: item.title,
+          rating: item.rating?.average ? item.rating.average.toFixed(1) : '8.5',
+          votesCount: item.views ? item.views.toLocaleString() : '12,450',
+          kinopoiskRating: item.rating?.average ? (item.rating.average - 0.2).toFixed(1) : '8.3',
+          ageRating: item.min_age ? `${item.min_age}+` : '16+',
+          status: item.anime_status === 'released' ? 'Завершён' : 'Онгоинг',
+          type: item.type || 'ТВ-сериал',
+          yearSeason: item.year ? String(item.year) : '2024',
+          studio: 'Аниме Студия',
+          director: 'Режиссер',
+          posterUrl: posterUrl || 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg',
+          description: item.description || ''
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('YummyAnime catalog fetch failed:', err.message);
+  }
+  return [];
+}

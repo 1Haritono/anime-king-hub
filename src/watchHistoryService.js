@@ -26,6 +26,15 @@ export function logEpisodeWatch(anime, episodeNum, dubName = 'Озвучка Р�
   if (!anime || !anime.id) return;
   const history = getStorage(STORAGE_KEY, []);
   
+  if (history.length > 0) {
+    const lastLog = history[0];
+    const timeDiff = Date.now() - lastLog.timestamp;
+    if (lastLog.animeId === anime.id && lastLog.episodeNumber === Number(episodeNum) && timeDiff < 5 * 60 * 1000) {
+      // Prevent duplicate logs (StrictMode / rapid re-clicks)
+      return;
+    }
+  }
+
   const record = {
     id: `${anime.id}_ep${episodeNum}_${Date.now()}`,
     animeId: anime.id,
@@ -115,39 +124,31 @@ export function formatRelativeTime(timestamp) {
 export function getProfileAnalytics() {
   const history = getStorage(STORAGE_KEY, []);
   const ratings = getStorage(RATINGS_KEY, []);
+  
+  // Real data only: no fake fallbacks for production
+  const activeHistory = history;
+  const activeRatings = ratings;
 
-  // Default seed data for initial rich state matching reference screenshots if empty
-  const defaultHistory = [
-    { animeId: 5114, title: 'Последний серафим', episodeNumber: 10, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', timestamp: Date.now() - 16000 },
-    { animeId: 28927, title: 'Последний Серафим: Битва в Нагое', episodeNumber: 12, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/28927.jpg', timestamp: Date.now() - 360000 },
-    { animeId: 30000, title: 'Самый известный диктор создаёт самый великий в мире клан', episodeNumber: 12, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', timestamp: new Date().setHours(2, 1, 0, 0) },
-    { animeId: 40000, title: 'Бывший герой, которого прозвали неудачником и выгна...', episodeNumber: 5, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/28927.jpg', timestamp: new Date('2026-07-27T21:23:00').getTime() },
-    { animeId: 50000, title: 'Принцесса немёртвых: Красная хроника', episodeNumber: 1, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', timestamp: new Date('2026-07-25T19:22:00').getTime() }
-  ];
+  // Status Distribution (Computed from real data)
+  // "watching" = unique anime titles in history
+  const uniqueWatchedIds = new Set(history.map(h => h.animeId));
+  // "planned" = number of bookmarks
+  const bookmarks = getStorage('bookmarks', []);
 
-  const defaultRatings = [
-    { animeId: 28927, title: 'Нагое', rating: 5, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/28927.jpg', timestamp: new Date('2026-07-29T19:46:00').getTime() },
-    { animeId: 60000, title: 'Легенды Троецарствия: Книга мира', rating: 3, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', timestamp: new Date('2026-07-20T20:05:00').getTime() },
-    { animeId: 70000, title: 'Магистр дьявольского культа 3', rating: 5, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/28927.jpg', timestamp: new Date('2026-07-19T00:59:00').getTime() },
-    { animeId: 80000, title: 'Адский рай 2', rating: 5, posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', timestamp: new Date('2026-07-17T16:35:00').getTime() }
-  ];
-
-  const activeHistory = history.length > 0 ? history : defaultHistory;
-  const activeRatings = ratings.length > 0 ? ratings : defaultRatings;
-
-  // Status Distribution (Reference matching: Смотрю 8, В планах 172, Просмотрено 195, Отложено 0, Брошено 0)
   const statusCounts = {
-    watching: Number(localStorage.getItem('stat_watching') || 8),
-    planned: Number(localStorage.getItem('stat_planned') || 172),
-    completed: Number(localStorage.getItem('stat_completed') || 195),
-    onHold: Number(localStorage.getItem('stat_onhold') || 0),
-    dropped: Number(localStorage.getItem('stat_dropped') || 0)
+    watching: uniqueWatchedIds.size,
+    planned: bookmarks.length,
+    completed: 0,
+    onHold: 0,
+    dropped: 0
   };
 
-  const totalEpisodes = activeHistory.length + 1420;
-  const totalWatchHours = Math.floor(totalEpisodes * 24 / 60);
+  const totalEpisodes = history.length;
+  // sum duration in minutes (if available, else assume 24)
+  const totalMinutes = history.reduce((acc, curr) => acc + (curr.durationMinutes || 24), 0);
+  const totalWatchHours = Math.floor(totalMinutes / 60);
 
-  // 7-day Episode Velocity Bar Chart (Reference: 23.07:0, 24.07:3, 25.07:1, 26.07:0, 27.07:5, 28.07:9)
+  // 7-day Episode Velocity Bar Chart
   const days = [];
   const today = new Date();
   for (let i = 6; i >= 0; i--) {
@@ -161,11 +162,7 @@ export function getProfileAnalytics() {
       return hDate.toDateString() === d.toDateString();
     }).length;
 
-    // Fallback baseline for reference chart look
-    const presetCounts = [0, 3, 1, 0, 5, 9, 2];
-    const finalCount = history.length > 0 ? count : (presetCounts[6 - i] || 0);
-
-    days.push({ dateLabel: label, count: finalCount });
+    days.push({ dateLabel: label, count: count });
   }
 
   return {

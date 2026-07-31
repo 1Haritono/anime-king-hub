@@ -87,7 +87,27 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 2000) {
   }
 }
 
+// Master toggle switch: false = instant local fallback mode (no network requests), true = live Shikimori API requests
+export const USE_SHIKIMORI_API = false;
+
 export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20, page = 1, search = '', kind = '' } = {}) {
+  if (!USE_SHIKIMORI_API) {
+    try {
+      const { fetchYummyAnimeList } = await import('./yummyApi.js');
+      const yummyList = await fetchYummyAnimeList({ page, search });
+      if (yummyList && yummyList.length > 0) {
+        return yummyList;
+      }
+    } catch (err) {
+      console.warn('YummyAnime catalog fallback failed:', err.message);
+    }
+    let filtered = FALLBACK_SHIKIMORI_CATALOG;
+    if (search) {
+      filtered = filtered.filter(item => item.title.toLowerCase().includes(search.toLowerCase()) || item.originalTitle.toLowerCase().includes(search.toLowerCase()));
+    }
+    return filtered.map(item => ({ ...item, mal_id: item.id }));
+  }
+
   // Try multi-tier proxy pipeline to prevent loading hangs
   const query = `/api/animes?limit=${limit}&page=${page}&order=${order}${search ? `&search=${encodeURIComponent(search)}` : ''}${kind ? `&kind=${kind}` : ''}`;
   const targetUrl = `${SHIKIMORI_BASE}${query}`;
@@ -142,6 +162,39 @@ export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20
 }
 
 export async function fetchShikimoriAnimeDetails(id) {
+  if (!USE_SHIKIMORI_API) {
+    try {
+      const { fetchYummyAnimeDetails } = await import('./yummyApi.js');
+      const yummyData = await fetchYummyAnimeDetails(id, false);
+      if (yummyData) {
+        const rawPoster = yummyData.poster?.big || yummyData.poster?.medium || yummyData.poster?.small || '';
+        const posterUrl = rawPoster ? (rawPoster.startsWith('//') ? `https:${rawPoster}` : rawPoster) : '';
+        return {
+          id: yummyData.anime_id,
+          mal_id: yummyData.remote_ids?.shikimori_id || yummyData.anime_id,
+          title: yummyData.title,
+          originalTitle: yummyData.title,
+          rating: yummyData.rating?.average ? yummyData.rating.average.toFixed(1) : '8.5',
+          votesCount: yummyData.views ? yummyData.views.toLocaleString() : '12,450',
+          kinopoiskRating: yummyData.rating?.average ? (yummyData.rating.average - 0.2).toFixed(1) : '8.3',
+          ageRating: yummyData.min_age ? `${yummyData.min_age}+` : '16+',
+          status: yummyData.anime_status === 'released' ? 'Завершён' : 'Онгоинг',
+          type: yummyData.type || 'ТВ-сериал',
+          yearSeason: yummyData.year ? String(yummyData.year) : '2024',
+          studio: 'Аниме Студия',
+          director: 'Режиссер',
+          posterUrl: posterUrl || 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg',
+          description: yummyData.description || '',
+          screenshots: []
+        };
+      }
+    } catch (err) {
+      console.warn('YummyAnime details fallback failed:', err.message);
+    }
+    const item = FALLBACK_SHIKIMORI_CATALOG.find(i => i.id === id) || FALLBACK_SHIKIMORI_CATALOG[0];
+    return { ...item, mal_id: item.id, screenshots: item.screenshots || [] };
+  }
+
   const targetUrl = `${SHIKIMORI_BASE}/api/animes/${id}`;
   const proxies = [
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
