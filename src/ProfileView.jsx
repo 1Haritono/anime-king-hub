@@ -83,8 +83,18 @@ export default function ProfileView({ onPlaySample }) {
             <div style={{ fontSize: '0.85rem', color: '#D4AF37', fontWeight: 700, marginBottom: '4px' }}>
               {user.status}
             </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              {isLoggedIn ? '● Онлайн • Сессия сохранена' : 'Локальный профиль пользователя'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                {isLoggedIn ? '● Онлайн • Сессия сохранена' : 'Локальный профиль пользователя'}
+              </span>
+              <span style={{
+                backgroundColor: localStorage.getItem('anixart_session') ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
+                color: localStorage.getItem('anixart_session') ? '#4CAF50' : '#FF5252',
+                border: `1px solid ${localStorage.getItem('anixart_session') ? 'rgba(76, 175, 80, 0.4)' : 'rgba(244, 67, 54, 0.4)'}`,
+                padding: '2px 8px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800
+              }}>
+                Сессия Anixart: {localStorage.getItem('anixart_session') ? 'Активна' : 'Неактивна'}
+              </span>
             </div>
           </div>
         </div>

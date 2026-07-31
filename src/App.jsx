@@ -145,51 +145,140 @@ function PopularView({ onAnimeClick }) {
   );
 }
 
-function CollectionsView({ onAnimeClick }) {
-  const categories = [
-    { id: 'watching', title: '▶ Смотрю сейчас', color: '#4CAF50', desc: 'Аниме в процессе просмотра' },
-    { id: 'completed', title: '✓ Просмотрено', color: '#D4AF37', desc: 'Полностью просмотренные тайтлы' },
-    { id: 'planned', title: '⏳ В планах', color: '#2196F3', desc: 'Отложенные на будущее' },
-    { id: 'dropped', title: '✕ Брошено', color: '#F44336', desc: 'Прекращенный просмотр' }
+function CollectionsView({ onAnimeClick, openPlayer }) {
+  const [selectedTab, setSelectedTab] = useState('collections');
+  const [resolvingId, setResolvingId] = useState(null);
+
+  const tabs = [
+    { id: 'collections', label: 'Коллекции' },
+    { id: 'history', label: 'История' },
+    { id: 'favorites', label: 'Избранное' },
+    { id: 'watching', label: 'Смотрю' },
+    { id: 'planned', label: 'В планах' },
+    { id: 'completed', label: 'Просмотрено' },
+    { id: 'on_hold', label: 'Отложено' },
+    { id: 'dropped', label: 'Брошено' }
   ];
+
+  const getCollectionItems = (tabId) => {
+    try {
+      if (tabId === 'history') {
+        return JSON.parse(localStorage.getItem('animeking_watch_history') || '[]');
+      }
+      if (tabId === 'favorites') {
+        return JSON.parse(localStorage.getItem('bookmarks') || '[]');
+      }
+      if (tabId === 'collections') {
+        const watching = JSON.parse(localStorage.getItem('collection_watching') || '[]');
+        const planned = JSON.parse(localStorage.getItem('collection_planned') || '[]');
+        const completed = JSON.parse(localStorage.getItem('collection_completed') || '[]');
+        return [...watching, ...planned, ...completed];
+      }
+      const key = `collection_${tabId}`;
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'watching': return { label: 'Смотрю', bg: '#4CAF50', color: '#FFF' };
+      case 'completed': return { label: 'Просмотрено', bg: '#4285F4', color: '#FFF' };
+      case 'planned': return { label: 'В планах', bg: '#AB47BC', color: '#FFF' };
+      case 'on_hold': return { label: 'Отложено', bg: '#FFA726', color: '#FFF' };
+      case 'dropped': return { label: 'Брошено', bg: '#EF5350', color: '#FFF' };
+      default: return { label: 'Закладка', bg: '#D4AF37', color: '#000' };
+    }
+  };
+
+  const items = getCollectionItems(selectedTab);
+
+  const handlePlayClick = async (e, item) => {
+    e.stopPropagation();
+    let targetYummyId = item.yummyId || item.id;
+    
+    if (!targetYummyId) {
+      setResolvingId(item.anixartId || item.title);
+      const { resolveYummyId } = await import('./idMappingService');
+      targetYummyId = await resolveYummyId(item);
+      setResolvingId(null);
+    }
+
+    openPlayer({
+      ...item,
+      id: targetYummyId,
+      anime_id: targetYummyId
+    });
+  };
 
   return (
     <div>
       <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>📚 Персональные коллекционные списки</h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Распределяйте аниме по категориям прямо с карточки просмотра</p>
+        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
+          📚 Списки и коллекция Anixart
+        </h2>
+        
+        {/* Anixart Tabs Header */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedTab(tab.id)}
+              style={{
+                backgroundColor: selectedTab === tab.id ? 'var(--border-burgundy)' : 'var(--bg-card)',
+                color: selectedTab === tab.id ? '#FF85A2' : 'var(--text-secondary)',
+                border: selectedTab === tab.id ? '1px solid #FF85A2' : '1px solid var(--border-subtle)',
+                borderRadius: '8px', padding: '6px 14px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-        {categories.map(cat => {
-          const saved = JSON.parse(localStorage.getItem(`collection_${cat.id}`) || '[]');
-          return (
-            <div key={cat.id} className="card-amoled" style={{ padding: '18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ fontWeight: 800, color: cat.color, fontSize: '1.05rem' }}>{cat.title}</span>
-                <span style={{ backgroundColor: `${cat.color}22`, color: cat.color, padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
-                  {saved.length} тайтлов
-                </span>
+      {resolvingId && (
+        <div style={{ padding: '10px', backgroundColor: 'rgba(212, 175, 55, 0.1)', border: '1px solid #D4AF37', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: '#D4AF37', fontWeight: 700 }}>
+          Идёт сопоставление Yummy ID для «{resolvingId}»...
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <div className="card-amoled" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          В этой категории пока нет тайтлов. Импортируйте или войдите в Anixart в настройках профиля!
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+          {items.map((item, idx) => {
+            const badge = getStatusBadge(item.status || selectedTab);
+            return (
+              <div key={idx} className="card-amoled" onClick={() => onAnimeClick(item)} style={{ padding: '14px', cursor: 'pointer', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '22px', right: '22px', zIndex: 2 }}>
+                  <span style={{ backgroundColor: badge.bg, color: badge.color, padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                    {badge.label}
+                  </span>
+                </div>
+                <div style={{ height: '240px', borderRadius: '8px', marginBottom: '10px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)' }}>
+                  <img src={item.posterUrl || item.poster || 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
+                  {item.title}
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  <span>{item.episodeProgress ? `${item.episodeProgress} эп.` : 'ТВ-сериал'}</span>
+                  <button
+                    onClick={(e) => handlePlayClick(e, item)}
+                    style={{ backgroundColor: 'var(--border-burgundy)', color: '#FF85A2', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    ▶ Воспроизвести
+                  </button>
+                </div>
               </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '14px' }}>{cat.desc}</p>
-
-              {saved.length === 0 ? (
-                <div style={{ padding: '20px 0', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', border: '1px dashed var(--border-subtle)', borderRadius: '8px' }}>
-                  В этой коллекции пока ничего нет
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {saved.slice(0, 4).map(item => (
-                    <div key={item.id} onClick={() => onAnimeClick(item)} style={{ padding: '6px 10px', borderRadius: '6px', backgroundColor: 'var(--bg-surface)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.title}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
