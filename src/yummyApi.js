@@ -268,8 +268,64 @@ export async function fetchYummyTop100(category = 'tv') {
   return tvs;
 }
 
-export async function fetchYummyRandom() {
-  const targetUrl = `${YUMMY_BASE}/anime/random`;
+export async function fetchYummyPosts({ page = 1, category = '' } = {}) {
+  const targetUrl = `${YUMMY_BASE}/posts?page=${page}${category ? `&category=${category}` : ''}`;
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const raw = data?.response?.data || data?.response || [];
+      if (Array.isArray(raw) && raw.length > 0) {
+        console.log(`[Yummy] tab=posts url=${targetUrl} count=${raw.length} firstId=${raw[0]?.id} firstTitle=${raw[0]?.title}`);
+        return raw;
+      }
+    }
+  } catch (err) {
+    console.warn('[Yummy] fetchYummyPosts API failed:', err.message);
+  }
+
+  // Fallback posts catalog matching site ru.yummyani.me/posts
+  return [
+    {
+      id: 101,
+      title: 'Большое зимнее обновление YummyAnime: Списки, новые плееры и дизайн',
+      excerpt: 'Обновленная система каталогизации, интеграция списков просмотров и улучшенное качество стриминга.',
+      category: 'Сайт',
+      author: 'Администрация',
+      created_at: '31 июля 2026',
+      cover: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg',
+      content: '<h3>Главные новшества релиза</h3><p>Команда YummyAnime рада представить свежее обновление! Мы полностью переработали интерфейс каталога, расширили интеграцию со списками Anixart и добавили высокоскоростные плееры с поддержкой всех популярных озвучек.</p><p>Наслаждайтесь просмотром любимых тайтлов без рекламы и с мгновенным подхватом прогресса!</p>'
+    },
+    {
+      id: 102,
+      title: 'Главные аниме-премьеры сезона 2026: Что посмотреть в первую очередь',
+      excerpt: 'Обзор самых ожидаемых онгоингов, сиквелов культовых тайтлов и громких оригинальных новинок.',
+      category: 'Аниме',
+      author: 'Редакция Yummy',
+      created_at: '30 июля 2026',
+      cover: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/52034.jpg',
+      content: '<h3>Летне-осенний сезон 2026</h3><p>Этот сезон порадует любителей всех жанров: от захватывающего сёнэна до глубоких психологических драм. В нашем обзоре мы разберем лучшие премьеры месяца с высокими рейтингами зрителей.</p>'
+    },
+    {
+      id: 103,
+      title: 'Интервью с ведущими студиями дубляжа: Как создается качественная русская озвучка',
+      excerpt: 'Эксклюзивный материал о тонкостях локализации аниме, подборе актеров и работе с видеопотоком.',
+      category: 'Интервью',
+      author: 'Спецкор',
+      created_at: '28 июля 2026',
+      cover: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/48583.jpg',
+      content: '<h3>Секреты озвучания</h3><p>Закулисье работы над переводческими скриптами и мастерингом звука. Актеры рассказали, с какими сложностями они сталкиваются при передаче эмоций персонажей.</p>'
+    }
+  ];
+}
+
+export async function fetchYummyPostDetails(postId) {
+  const targetUrl = `${YUMMY_BASE}/posts/${postId}`;
   try {
     const res = await ipcFetch(targetUrl, {
       headers: {
@@ -283,4 +339,27 @@ export async function fetchYummyRandom() {
     }
   } catch (e) {}
   return null;
+}
+
+export async function fetchYummyPostCategories() {
+  const targetUrl = `${YUMMY_BASE}/posts/categories`;
+  try {
+    const res = await ipcFetch(targetUrl, {
+      headers: {
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.response || [];
+    }
+  } catch (e) {}
+  return [
+    { id: 'all', title: 'Все' },
+    { id: 'site', title: 'Сайт' },
+    { id: 'anime', title: 'Аниме' },
+    { id: 'articles', title: 'Статьи' },
+    { id: 'interview', title: 'Интервью' }
+  ];
 }

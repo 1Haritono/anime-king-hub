@@ -370,6 +370,135 @@ function Top100View({ onAnimeClick, openPlayer }) {
   );
 }
 
+function NewsView() {
+  const [posts, setPosts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    import('./yummyApi').then(({ fetchYummyPosts, fetchYummyPostCategories }) => {
+      fetchYummyPostCategories().then(cats => {
+        if (isMounted) setCategories(cats || []);
+      });
+
+      const catParam = activeCategory === 'all' ? '' : activeCategory;
+      fetchYummyPosts({ page: 1, category: catParam }).then(data => {
+        if (isMounted) {
+          setPosts(data || []);
+          setLoading(false);
+        }
+      });
+    });
+
+    return () => { isMounted = false; };
+  }, [activeCategory]);
+
+  return (
+    <div>
+      <div style={{ backgroundColor: 'rgba(92, 6, 28, 0.25)', border: '1px solid var(--border-burgundy)', borderRadius: '12px', padding: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FF85A2', fontWeight: 800, fontSize: '1.3rem', marginBottom: '4px' }}>
+            <Newspaper size={26} color="#FF85A2" /> 📰 Новости и статьи YummyAnime
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Свежие анонсы, обновления сервиса и интересные статьи</p>
+        </div>
+        <span className="badge-burgundy" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>Yummy Posts API</span>
+      </div>
+
+      {/* Categories Filter Header */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', overflowX: 'auto' }}>
+        {categories.map(cat => (
+          <button
+            key={cat.id || cat.title}
+            onClick={() => setActiveCategory(cat.id || cat.title.toLowerCase())}
+            style={{
+              backgroundColor: activeCategory === (cat.id || cat.title.toLowerCase()) ? 'var(--border-burgundy)' : 'var(--bg-card)',
+              color: activeCategory === (cat.id || cat.title.toLowerCase()) ? '#FF85A2' : 'var(--text-secondary)',
+              border: activeCategory === (cat.id || cat.title.toLowerCase()) ? '1px solid #FF85A2' : '1px solid var(--border-subtle)',
+              borderRadius: '8px', padding: '8px 18px', fontSize: '0.85rem', fontWeight: 800, cursor: 'cursor', flexShrink: 0
+            }}
+          >
+            {cat.title || cat.name}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px', color: '#D4AF37' }}>
+          <Loader2 className="spin-icon" size={28} /><span>Загрузка новостей...</span>
+        </div>
+      ) : posts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Постов в этой категории пока нет.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          {posts.map((post, idx) => (
+            <div
+              key={post.id || idx}
+              className="card-amoled"
+              onClick={() => setSelectedPost(post)}
+              style={{ borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+            >
+              <img
+                src={post.cover || post.image || 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg'}
+                alt=""
+                style={{ width: '100%', height: '180px', objectFit: 'cover' }}
+              />
+              <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="badge-burgundy">{post.category || 'Статья'}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{post.created_at || 'Сегодня'}</span>
+                  </div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                    {post.title}
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '14px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {post.excerpt || post.description || ''}
+                  </p>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Автор: {post.author || 'Администрация'}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Post Detail Modal */}
+      {selectedPost && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ backgroundColor: '#141414', border: '1px solid var(--border-burgundy)', borderRadius: '16px', maxWidth: '720px', width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '24px', position: 'relative' }}>
+            <button
+              onClick={() => setSelectedPost(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#AAA', cursor: 'pointer' }}
+            >
+              <X size={24} />
+            </button>
+            <span className="badge-burgundy" style={{ marginBottom: '10px', display: 'inline-block' }}>{selectedPost.category || 'Статья'}</span>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFF', marginBottom: '12px' }}>{selectedPost.title}</h2>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              {selectedPost.author || 'Администрация'} • {selectedPost.created_at || 'Сегодня'}
+            </div>
+            {selectedPost.cover && (
+              <img src={selectedPost.cover} alt="" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '10px', marginBottom: '16px' }} />
+            )}
+            <div
+              style={{ fontSize: '0.92rem', color: '#DDD', lineHeight: '1.6' }}
+              dangerouslySetInnerHTML={{ __html: selectedPost.content || selectedPost.excerpt || '' }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CollectionsView({ onAnimeClick, openPlayer }) {
   const [selectedTab, setSelectedTab] = useState('collections');
   const [resolvingId, setResolvingId] = useState(null);
@@ -638,6 +767,7 @@ function MainAppContent() {
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home },
     { id: 'top100', label: 'ТОП-100', icon: Award },
+    { id: 'news', label: 'Новости', icon: Newspaper },
     { id: 'discover', label: 'Открытия', icon: Compass },
     { id: 'popular', label: 'Популярное', icon: Flame },
     { id: 'collections', label: 'Коллекции', icon: BookOpen },
@@ -664,6 +794,7 @@ function MainAppContent() {
     if (activeNav === 'schedule') return <ScheduleView onSelectAnime={handleAnimeClick} />;
     
     if (activeNav === 'top100') return <Top100View onAnimeClick={handleAnimeClick} openPlayer={openPlayer} />;
+    if (activeNav === 'news') return <NewsView />;
     if (activeNav === 'discover') return <DiscoverView onAnimeClick={handleAnimeClick} />;
     if (activeNav === 'popular') return <PopularView onAnimeClick={handleAnimeClick} openPlayer={openPlayer} />;
     if (activeNav === 'collections') return <CollectionsView onAnimeClick={handleAnimeClick} openPlayer={openPlayer} />;
