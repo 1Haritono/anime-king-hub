@@ -30,10 +30,10 @@ export async function pullFromAnixart() {
       localStorage.setItem(cat.storageKey, JSON.stringify(mappedItems));
     }
 
-    console.log('[listSyncService] Successfully pulled collections from Anixart.');
+    console.log('[Sync] Successfully pulled collections from Anixart.');
     return true;
   } catch (err) {
-    console.warn('[listSyncService] pullFromAnixart failed:', err.message);
+    console.warn('[Sync] pullFromAnixart failed:', err.message);
     return false;
   }
 }

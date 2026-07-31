@@ -51,7 +51,7 @@ export async function resolveYummyId({ anixartId, title, shikimoriId, malId }) {
       }
     }
   } catch (err) {
-    console.warn('[idMappingService] Failed to resolve Yummy ID:', err.message);
+    console.warn('[Mapping] Failed to resolve Yummy ID:', err.message);
   }
 
   // Fallback to input ID
