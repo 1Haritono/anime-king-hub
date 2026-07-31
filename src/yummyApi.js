@@ -77,11 +77,16 @@ export function parseYummyVideos(videosArray = []) {
     if (iframeUrl.startsWith('//')) {
       iframeUrl = `https:${iframeUrl}`;
     }
+
+    const epNum = item.number !== undefined && item.number !== null ? String(item.number).trim() : '1';
+    const rawPlayer = item.data?.player || 'Основной Плеер';
+    const rawDubbing = item.data?.dubbing || 'Оригинал / Озвучка';
+
     return {
       videoId: item.video_id,
-      episodeNumber: item.number || '1',
-      playerName: item.data?.player || 'Основной Плеер',
-      dubbing: item.data?.dubbing || 'Оригинал / Озвучка',
+      episodeNumber: epNum,
+      playerName: (rawPlayer && String(rawPlayer).trim()) || 'Неизвестно',
+      dubbing: (rawDubbing && String(rawDubbing).trim()) || 'Неизвестно',
       playerId: item.data?.player_id,
       iframeUrl: iframeUrl,
       skips: item.skips || { opening: null, ending: null }

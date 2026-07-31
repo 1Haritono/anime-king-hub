@@ -57,17 +57,32 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
       timestamp: new Date().toISOString()
     });
 
-    const cleanDubName = dub.replace(/^Озвучка\s+/, '');
-    const cleanPlayerName = player.replace(/^Плеер\s+/, '');
+    const cleanDub = dub.replace(/^Озвучка\s+/, '').toLowerCase().trim();
+    const cleanPlayer = player.replace(/^Плеер\s+/, '').toLowerCase().trim();
+    const targetEpStr = String(selectedEpisode).trim();
 
-    // Strict matching: Require dubbing, episode, AND player name to match
-    const matchedVid = videos.find(v => 
-      (v.dubbing.toLowerCase().includes(cleanDubName.toLowerCase()) || cleanDubName.toLowerCase().includes(v.dubbing.toLowerCase())) &&
-      String(v.episodeNumber) === String(selectedEpisode) &&
-      (v.playerName.toLowerCase().includes(cleanPlayerName.toLowerCase()) || cleanPlayerName.toLowerCase().includes(v.playerName.toLowerCase()))
-    );
+    // 1. Strict multi-property match
+    let matchedVid = videos.find(v => {
+      const vDub = String(v.dubbing || '').toLowerCase().trim();
+      const vPlayer = String(v.playerName || '').toLowerCase().trim();
+      const vEpStr = String(v.episodeNumber || '').trim();
 
-    // If YummyAnime API genuinely has no URL for this specific combination, trigger fallback behavior without hardcoded IDs
+      const dubMatches = vDub.includes(cleanDub) || cleanDub.includes(vDub);
+      const playerMatches = vPlayer.includes(cleanPlayer) || cleanPlayer.includes(vPlayer);
+      const epMatches = vEpStr === targetEpStr;
+
+      return dubMatches && playerMatches && epMatches;
+    });
+
+    // 2. Resilient fallback: If exact dub+player match not found, pick first video matching target episode
+    if (!matchedVid) {
+      matchedVid = videos.find(v => String(v.episodeNumber || '').trim() === targetEpStr);
+      if (matchedVid) {
+        console.warn(`[Matching Fallback] Exact match for player "${player}" + dub "${dub}" not found. Using first video for Episode ${targetEpStr}:`, matchedVid.playerName);
+      }
+    }
+
+    // 3. If no video for this episode exists at all, trigger fallback chain
     if (!matchedVid || !matchedVid.iframeUrl) {
       console.warn(`[Video Missing] No matching video found for ${player}, ${dub}, Episode ${selectedEpisode}`);
       showToast(`Источнику ${player} видео недоступно, пробуем другой источник...`);

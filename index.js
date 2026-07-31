@@ -17,19 +17,29 @@ function createWindow() {
     }
   });
 
-  // Inject Referer header for shikimori.one images & Kodik/Alloha/VK video embeds to bypass hotlink & domain blocks
+  // Inject Referer header for shikimori.one, YummyAnime, Kodik, Alloha, VK, etc.
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: [
-      'https://shikimori.one/*',
+      '*://api.yani.tv/*',
+      '*://*.yani.tv/*',
+      '*://*.shikimori.one/*',
       '*://*.kodikplayer.com/*',
       '*://*.kodik.info/*',
+      '*://*.kodik.biz/*',
       '*://*.alloha.tv/*',
+      '*://*.alloha.world/*',
       '*://*.vk.com/*',
-      '*://*.rutube.ru/*'
+      '*://*.rutube.ru/*',
+      '*://*.cvh.name/*'
     ] },
     (details, callback) => {
-      details.requestHeaders['Referer'] = 'https://shikimori.one/';
+      const url = details.url || '';
       details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      
+      // Do not aggressively override Referer for YummyAnime API requests
+      if (!url.includes('api.yani.tv')) {
+        details.requestHeaders['Referer'] = 'https://shikimori.one/';
+      }
       callback({ requestHeaders: details.requestHeaders });
     }
   );
@@ -82,15 +92,35 @@ ipcMain.on('check-for-updates', () => {
 
 ipcMain.handle('electron-fetch', async (event, url, options = {}) => {
   try {
-    const response = await net.fetch(url, options);
+    const fetchOptions = {
+      method: options.method || 'GET',
+      headers: options.headers || {}
+    };
+    if (options.body) {
+      fetchOptions.body = options.body;
+    }
+
+    const response = await net.fetch(url, fetchOptions);
     const text = await response.text();
+
+    if (!response.ok) {
+      console.warn(`[electron-fetch Error] URL: ${url} | Status: ${response.status}`);
+    }
+
     return { 
       ok: response.ok, 
       status: response.status, 
-      data: text 
+      data: text,
+      headers: response.headers ? Object.fromEntries(response.headers.entries()) : {}
     };
   } catch (err) {
-    return { error: err.message };
+    console.error(`[electron-fetch Exception] URL: ${url} | Error: ${err.message}`);
+    return { 
+      ok: false, 
+      status: 0, 
+      error: err.message, 
+      data: '' 
+    };
   }
 });
 
