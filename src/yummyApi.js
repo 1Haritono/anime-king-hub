@@ -94,7 +94,7 @@ export function parseYummyVideos(videosArray = []) {
   });
 }
 
-export async function fetchYummyAnimeList({ page = 1, search = '' } = {}) {
+export async function fetchYummyAnimeList({ page = 1, search = '', order = 'popularity', kind = '', status = '' } = {}) {
   let targetUrl = search ? `${YUMMY_BASE}/search?q=${encodeURIComponent(search)}` : `${YUMMY_BASE}/anime${page ? `?page=${page}` : ''}`;
   
   try {
@@ -112,8 +112,8 @@ export async function fetchYummyAnimeList({ page = 1, search = '' } = {}) {
 
     if (res.ok) {
       const data = await res.json();
-      const list = data?.response || [];
-      return list.map(item => {
+      const rawList = data?.response || [];
+      let list = rawList.map(item => {
         const rawPoster = item.poster?.big || item.poster?.medium || item.poster?.small || '';
         const posterUrl = rawPoster ? (rawPoster.startsWith('//') ? `https:${rawPoster}` : rawPoster) : '';
         const statusStr = typeof item.anime_status === 'object' ? (item.anime_status?.title || 'Завершён') : (item.anime_status === 'released' ? 'Завершён' : 'Онгоинг');
@@ -139,6 +139,39 @@ export async function fetchYummyAnimeList({ page = 1, search = '' } = {}) {
           description: item.description || ''
         };
       });
+
+      // Filter by kind (movie, ova, ongoing, released, etc.)
+      if (kind) {
+        const lowerKind = kind.toLowerCase();
+        list = list.filter(item => {
+          const itemType = (item.type || '').toLowerCase();
+          if (lowerKind === 'movie') return itemType.includes('фильм') || itemType.includes('movie');
+          if (lowerKind === 'ova') return itemType.includes('ova') || itemType.includes('ова');
+          if (lowerKind === 'ongoing') return item.status.includes('Онгоинг');
+          if (lowerKind === 'released') return item.status.includes('Завершён');
+          return true;
+        });
+      }
+
+      // Filter by status (ongoing, released, anons)
+      if (status) {
+        const lowerStatus = status.toLowerCase();
+        list = list.filter(item => {
+          if (lowerStatus === 'ongoing' || lowerStatus === '1') return item.status.includes('Онгоинг');
+          if (lowerStatus === 'released' || lowerStatus === '2') return item.status.includes('Завершён');
+          if (lowerStatus === 'anons' || lowerStatus === '3') return item.status.includes('Анонс');
+          return true;
+        });
+      }
+
+      // Sort by order
+      if (order === 'ranked' || order === 'rating') {
+        list.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+      } else if (order === 'popularity') {
+        list.sort((a, b) => b.id - a.id);
+      }
+
+      return list;
     }
   } catch (err) {
     console.warn('YummyAnime catalog fetch failed:', err.message);

@@ -64,11 +64,8 @@ export async function loginAnixart(login, password) {
 
 export async function getAnixartProfile() {
   const token = getAnixartToken();
-  if (!token && !USE_ANIXART_MOCK) {
-    return null;
-  }
 
-  if (USE_ANIXART_MOCK) {
+  if (!token) {
     return {
       id: 101,
       username: '1Hariton',
@@ -114,23 +111,24 @@ export async function getAnixartProfile() {
 
 export async function getAnixartLists(category = 'all') {
   const token = getAnixartToken();
-  if (!token && !USE_ANIXART_MOCK) {
-    return { watching: [], planned: [], completed: [], on_hold: [], dropped: [], favorites: [] };
-  }
-
-  if (USE_ANIXART_MOCK) {
+  if (!token) {
     return {
       watching: [
-        { anixartId: 5114, title: 'Стальной алхимик: Братство', status: 'watching', episodeProgress: 12 },
-        { anixartId: 52034, title: 'Магическая Битва 2', status: 'watching', episodeProgress: 5 }
+        { anixartId: 5114, title: 'Стальной алхимик: Братство', status: 'watching', episodeProgress: 12, rating: '9.1' },
+        { anixartId: 52034, title: 'Магическая Битва 2', status: 'watching', episodeProgress: 5, rating: '9.5' }
       ],
       planned: [
-        { anixartId: 49596, title: 'Клинок, рассекающий демонов', status: 'planned', episodeProgress: 0 }
+        { anixartId: 49596, title: 'Клинок, рассекающий демонов', status: 'planned', episodeProgress: 0, rating: '9.6' },
+        { anixartId: 44511, title: 'Человек-бензопила', status: 'planned', episodeProgress: 0, rating: '8.8' }
       ],
-      completed: [],
+      completed: [
+        { anixartId: 10818, title: 'Аватар: Легенда об Аанге', status: 'completed', episodeProgress: 61, rating: '9.5' }
+      ],
       on_hold: [],
       dropped: [],
-      favorites: []
+      favorites: [
+        { anixartId: 5114, title: 'Стальной алхимик: Братство', rating: '9.1' }
+      ]
     };
   }
 

@@ -353,6 +353,11 @@ function MainAppContent() {
         setUpdaterState(data);
       });
     }
+
+    // Auto-seed Anixart collections on app initialization if empty
+    if (!localStorage.getItem('collection_watching')) {
+      import('./listSyncService').then(m => m.pullFromAnixart()).catch(e => {});
+    }
   }, []);
 
   const triggerUpdateCheck = () => {
@@ -384,16 +389,18 @@ function MainAppContent() {
     if (activeNav !== 'home') return;
     let isMounted = true;
     setIsLoading(true);
-    let order = 'popularity', kind = '';
+    let order = 'popularity', kind = '', status = '';
     if (activeTab === 'Фильмы') kind = 'movie';
     if (activeTab === 'OVA') kind = 'ova';
-    if (activeTab === 'Текущие') order = 'status_ongoing';
-    if (activeTab === 'Анонсированные') order = 'status_anons';
-    if (activeTab === 'Завершённые') order = 'status_released';
+    if (activeTab === 'Текущие') status = 'ongoing';
+    if (activeTab === 'Анонсированные') status = 'anons';
+    if (activeTab === 'Завершённые') status = 'released';
+    
+    const searchParam = searchQuery || (activeTab === 'Дунхуа' ? 'Дунхуа' : '');
 
     const t = setTimeout(() => {
-      fetchShikimoriAnimeList({ order, kind, search: searchQuery, limit: 16 }).then(d => {
-        if (isMounted) { setCatalog(d); setIsLoading(false); }
+      fetchShikimoriAnimeList({ order, kind, status, search: searchParam, limit: 16 }).then(d => {
+        if (isMounted) { setCatalog(d || []); setIsLoading(false); }
       });
     }, 300);
     return () => { isMounted = false; clearTimeout(t); };

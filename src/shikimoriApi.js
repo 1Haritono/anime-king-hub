@@ -90,11 +90,11 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 2000) {
 // Master toggle switch: false = instant local fallback mode (no network requests), true = live Shikimori API requests
 export const USE_SHIKIMORI_API = false;
 
-export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20, page = 1, search = '', kind = '' } = {}) {
+export async function fetchShikimoriAnimeList({ order = 'popularity', limit = 20, page = 1, search = '', kind = '', status = '' } = {}) {
   if (!USE_SHIKIMORI_API) {
     try {
       const { fetchYummyAnimeList } = await import('./yummyApi.js');
-      const yummyList = await fetchYummyAnimeList({ page, search });
+      const yummyList = await fetchYummyAnimeList({ page, search, order, kind, status });
       if (yummyList && yummyList.length > 0) {
         return yummyList;
       }
