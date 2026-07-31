@@ -208,3 +208,65 @@ export async function updateAnixartEpisodeProgress(anixartReleaseId, episode) {
     return false;
   }
 }
+
+export async function filterAnixartReleases(page = 1, filterArgs = {}) {
+  const token = getAnixartToken();
+
+  if (!token) {
+    // Distinct fallback catalog per filter tab (AnixApp pattern)
+    if (filterArgs.kind === 'movie' || filterArgs.type_id === 2) {
+      return [
+        { id: 1001, title: 'Твоё имя', rating: '9.3', votesCount: '45,210', status: 'Завершён', type: 'Фильм', yearSeason: '2016', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/32281.jpg', description: 'История о парне из Токио и девушке из провинции, которые неожиданно начинают меняться телами.' },
+        { id: 1002, title: 'Форма голоса', rating: '9.1', votesCount: '38,150', status: 'Завершён', type: 'Фильм', yearSeason: '2016', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/28851.jpg', description: 'Глубокая драма о прощении, глухонемой девушке Шоко и парне Сёе.' },
+        { id: 1003, title: 'Судзумэ закрывает двери', rating: '8.9', votesCount: '29,400', status: 'Завершён', type: 'Фильм', yearSeason: '2022', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/50594.jpg', description: '17-летняя Судзумэ помогает странствующему юноше закрыть загадочные двери по всей Японии.' }
+      ];
+    }
+
+    if (filterArgs.kind === 'ova' || filterArgs.type_id === 3) {
+      return [
+        { id: 2001, title: 'Хеллсинг OVA', rating: '9.0', votesCount: '21,100', status: 'Завершён', type: 'OVA', yearSeason: '2006', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/777.jpg', description: 'Кровавая сага о древнем вампире Алукарде и секретной организации Хеллсинг.' },
+        { id: 2002, title: 'Охотник х Охотник OVA', rating: '8.8', votesCount: '15,600', status: 'Завершён', type: 'OVA', yearSeason: '2002', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/136.jpg', description: 'Продолжение приключений Гона и Киллуа на острове Жадности.' }
+      ];
+    }
+
+    if (filterArgs.status === 'ongoing' || filterArgs.status_id === 1) {
+      return [
+        { id: 3001, title: 'Магическая Битва 2', rating: '9.5', votesCount: '54,200', status: 'Онгоинг', type: 'ТВ-сериал', yearSeason: '2023', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/52034.jpg', description: 'Инцидент в Сибуе: масштабное противостояние магов и проклятий высшего ранга.' },
+        { id: 3002, title: 'Поднятие уровня в одиночку', rating: '9.2', votesCount: '48,900', status: 'Онгоинг', type: 'ТВ-сериал', yearSeason: '2024', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/52299.jpg', description: 'Слабейший охотник Сон Джин-у получает уникальную способность поднимать уровень.' }
+      ];
+    }
+
+    if (filterArgs.status === 'released' || filterArgs.status_id === 2) {
+      return [
+        { id: 4001, title: 'Стальной алхимик: Братство', rating: '9.6', votesCount: '89,400', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '2009', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg', description: 'Братья Элрики ищут Философский камень, чтобы вернуть свои тела после запретной алхимии.' },
+        { id: 4002, title: 'Врата Штейна', rating: '9.4', votesCount: '71,200', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '2011', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/9253.jpg', description: 'Самопровозглашенный безумный ученый Окабэ Ринтаро случайно изобретает машину времени.' }
+      ];
+    }
+
+    // Default popular releases
+    return [
+      { id: 5001, title: 'Атака титанов: Финал', rating: '9.7', votesCount: '98,000', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '2023', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/48583.jpg', description: 'Финал истории Эрена Йегера и битвы за судьбу человечества и Элдии.' },
+      { id: 5002, title: 'Клинок, рассекающий демонов', rating: '9.4', votesCount: '82,100', status: 'Завершён', type: 'ТВ-сериал', yearSeason: '2019', posterUrl: 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/38000.jpg', description: 'Тандзиро Камадо становится истребителем демонов, чтобы спасти свою сестру Незуко.' }
+    ];
+  }
+
+  const endpoint = `${ANIXART_BASE}/release/filter?page=${page}`;
+  try {
+    const res = await ipcFetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(filterArgs)
+    });
+    if (res.ok) {
+      const data = typeof res.json === 'function' ? await res.json() : JSON.parse(res.data);
+      return data.releases || data.response || [];
+    }
+  } catch (err) {
+    console.warn('[Anixart API] filterReleases failed:', err.message);
+  }
+
+  return [];
+}

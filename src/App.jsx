@@ -96,51 +96,151 @@ function DiscoverView({ onAnimeClick }) {
   );
 }
 
-function PopularView({ onAnimeClick }) {
+function PopularView({ onAnimeClick, openPlayer }) {
+  const [popularTab, setPopularTab] = useState('all');
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [resolvingId, setResolvingId] = useState(null);
+
+  const subTabs = [
+    { id: 'all', label: 'Все', filterArgs: { sort: 2 } },
+    { id: 'ongoing', label: 'Онгоинги', filterArgs: { status: 'ongoing', status_id: 1 } },
+    { id: 'released', label: 'Завершённые', filterArgs: { status: 'released', status_id: 2 } },
+    { id: 'movies', label: 'Фильмы', filterArgs: { kind: 'movie', type_id: 2 } },
+    { id: 'ova', label: 'OVA', filterArgs: { kind: 'ova', type_id: 3 } }
+  ];
 
   useEffect(() => {
     let isMounted = true;
-    const timer = setTimeout(() => {
-      if (isMounted) setLoading(false);
-    }, 1000);
+    setLoading(true);
+    setCatalog([]); // Reset catalog on tab change so previous tab items don't leak!
 
-    fetchShikimoriAnimeList({ order: 'popularity', limit: 12 })
-      .then(d => {
+    const currentTab = subTabs.find(t => t.id === popularTab) || subTabs[0];
+
+    import('./anixartApi').then(({ filterAnixartReleases }) => {
+      filterAnixartReleases(1, currentTab.filterArgs).then(list => {
         if (isMounted) {
-          setCatalog(d && d.length > 0 ? d : []);
+          setCatalog(list || []);
           setLoading(false);
+          console.log(`[Catalog] tab=${currentTab.label} source=anixart params=${JSON.stringify(currentTab.filterArgs)} count=${list?.length || 0} firstTitle=${list?.[0]?.title || 'None'}`);
         }
-      })
-      .catch(err => {
+      }).catch(err => {
         console.warn('Popular fetch error:', err);
         if (isMounted) setLoading(false);
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        if (isMounted) setLoading(false);
       });
+    });
 
-    return () => { isMounted = false; clearTimeout(timer); };
-  }, []);
+    return () => { isMounted = false; };
+  }, [popularTab]);
+
+  const handlePlayClick = async (e, item) => {
+    e.stopPropagation();
+    let targetYummyId = item.yummyId || item.id;
+    if (!targetYummyId) {
+      setResolvingId(item.title);
+      const { resolveYummyId } = await import('./idMappingService');
+      targetYummyId = await resolveYummyId(item);
+      setResolvingId(null);
+    }
+    openPlayer({
+      ...item,
+      id: targetYummyId,
+      anime_id: targetYummyId
+    });
+  };
 
   return (
     <div>
-      <div style={{ backgroundColor: 'rgba(92, 6, 28, 0.25)', border: '1px solid var(--border-burgundy)', borderRadius: '12px', padding: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ backgroundColor: 'rgba(92, 6, 28, 0.25)', border: '1px solid var(--border-burgundy)', borderRadius: '12px', padding: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FF85A2', fontWeight: 800, fontSize: '1.25rem', marginBottom: '4px' }}>
-            <Flame size={24} color="#FF85A2" /> 🔥 Раздел Популярное — Хит-парад просмотров
+            <Flame size={24} color="#FF85A2" /> 🔥 Популярное — Ранжированный список AnixApp
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Самые обсуждаемые и просматриваемые аниме прямо сейчас</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Хит-парад релизов Anixart с обогащенным плеером Yummy</p>
         </div>
-        <span className="badge-burgundy" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>Trending Now</span>
+        <span className="badge-burgundy" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>AnixApp Ranked</span>
       </div>
+
+      {/* Sub-tabs Header */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+        {subTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setPopularTab(tab.id)}
+            style={{
+              backgroundColor: popularTab === tab.id ? 'var(--border-burgundy)' : 'var(--bg-card)',
+              color: popularTab === tab.id ? '#FF85A2' : 'var(--text-secondary)',
+              border: popularTab === tab.id ? '1px solid #FF85A2' : '1px solid var(--border-subtle)',
+              borderRadius: '8px', padding: '6px 14px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {resolvingId && (
+        <div style={{ padding: '10px', backgroundColor: 'rgba(212, 175, 55, 0.1)', border: '1px solid #D4AF37', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: '#D4AF37', fontWeight: 700 }}>
+          Сопоставление Yummy ID для «{resolvingId}»...
+        </div>
+      )}
+
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px', color: '#D4AF37' }}>
-          <Loader2 className="spin-icon" size={28} /><span>Загрузка популярного...</span>
+          <Loader2 className="spin-icon" size={28} /><span>Загрузка выбранной вкладки...</span>
         </div>
-      ) : <AnimeGrid catalog={catalog} onAnimeClick={onAnimeClick} rankBadge={true} />}
+      ) : catalog.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>В этой категории ничего не найдено.</div>
+      ) : (
+        /* AnixApp Ranked List Row layout */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {catalog.map((item, idx) => (
+            <div
+              key={item.id || idx}
+              className="card-amoled"
+              onClick={() => onAnimeClick(item)}
+              style={{ padding: '14px', display: 'flex', gap: '16px', alignItems: 'center', cursor: 'pointer' }}
+            >
+              {/* Rank badge */}
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: idx === 0 ? '#D4AF37' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--bg-surface)', color: idx < 3 ? '#000' : 'var(--text-secondary)', fontWeight: 900, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                #{idx + 1}
+              </div>
+
+              {/* Poster */}
+              <img
+                src={item.posterUrl || 'https://images.weserv.nl/?url=shikimori.one/system/animes/original/5114.jpg'}
+                alt=""
+                style={{ width: '64px', height: '90px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+              />
+
+              {/* Details */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title}
+                  </h4>
+                  <span className="badge-gold">★ {item.rating}</span>
+                  <span className="badge-burgundy">{item.type || 'ТВ'}</span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {item.description}
+                </p>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {item.status} • {item.yearSeason || '2024'}
+                </div>
+              </div>
+
+              {/* Action */}
+              <button
+                onClick={(e) => handlePlayClick(e, item)}
+                style={{ backgroundColor: 'var(--border-burgundy)', color: '#FF85A2', border: 'none', borderRadius: '8px', padding: '10px 16px', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', flexShrink: 0 }}
+              >
+                ▶ Смотреть
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -400,7 +500,11 @@ function MainAppContent() {
 
     const t = setTimeout(() => {
       fetchShikimoriAnimeList({ order, kind, status, search: searchParam, limit: 16 }).then(d => {
-        if (isMounted) { setCatalog(d || []); setIsLoading(false); }
+        if (isMounted) {
+          setCatalog(d || []);
+          setIsLoading(false);
+          console.log(`[Catalog] tab=${activeTab} source=yummy params=${JSON.stringify({ order, kind, status, search: searchParam })} count=${d?.length || 0} firstTitle=${d?.[0]?.title || 'None'}`);
+        }
       });
     }, 300);
     return () => { isMounted = false; clearTimeout(t); };
