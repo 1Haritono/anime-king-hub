@@ -139,6 +139,70 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+// Anixart Main Process Session & IPC Bridge (AnixApp Pattern)
+let anixartSessionToken = null;
+
+ipcMain.handle('anix:login', async (event, { login, password }) => {
+  try {
+    const response = await net.fetch('https://api.anixart.tv/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'AnixartAndroid/8.1' },
+      body: JSON.stringify({ login, password })
+    });
+    if (!response.ok) throw new Error('Неверный логин или пароль Anixart');
+    const data = await response.json();
+    anixartSessionToken = data.token || data.token_session;
+    return { success: true, token: anixartSessionToken, user: data.user || { username: login } };
+  } catch (err) {
+    console.warn('[Anixart Main IPC] Login failed:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('anix:logout', () => {
+  anixartSessionToken = null;
+  return { success: true };
+});
+
+ipcMain.handle('anix:getAuthStatus', () => {
+  return { hasToken: !!anixartSessionToken, token: anixartSessionToken };
+});
+
+ipcMain.handle('anix:selfProfile', async () => {
+  if (!anixartSessionToken) return null;
+  try {
+    const res = await net.fetch('https://api.anixart.tv/profile/me', {
+      headers: { 'Authorization': `Bearer ${anixartSessionToken}`, 'User-Agent': 'AnixartAndroid/8.1' }
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+});
+
+ipcMain.handle('anix:setListStatus', async (event, { releaseId, status }) => {
+  if (!anixartSessionToken) return false;
+  try {
+    const res = await net.fetch(`https://api.anixart.tv/release/${releaseId}/status`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${anixartSessionToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    return res.ok;
+  } catch (e) { return false; }
+});
+
+ipcMain.handle('anix:markEpisodeAsWatched', async (event, { releaseId, episode }) => {
+  if (!anixartSessionToken) return false;
+  try {
+    const res = await net.fetch(`https://api.anixart.tv/release/${releaseId}/episode`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${anixartSessionToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episode })
+    });
+    return res.ok;
+  } catch (e) { return false; }
+});
+
 app.whenReady().then(() => {
   createWindow();
 

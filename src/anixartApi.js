@@ -26,10 +26,19 @@ export function setAnixartToken(token) {
 }
 
 export async function loginAnixart(login, password) {
-  if (USE_ANIXART_MOCK) {
-    const mockToken = 'mock_anixart_session_token_12345';
-    setAnixartToken(mockToken);
-    return { success: true, token: mockToken, user: { username: login, id: 101 } };
+  if (typeof window !== 'undefined' && window.require) {
+    try {
+      const { ipcRenderer } = window.require('electron');
+      const res = await ipcRenderer.invoke('anix:login', { login, password });
+      if (res && res.success) {
+        setAnixartToken(res.token);
+        return res;
+      } else if (res && res.error) {
+        throw new Error(res.error);
+      }
+    } catch (e) {
+      if (e.message.includes('Неверный')) throw e;
+    }
   }
 
   const endpoint = `${ANIXART_BASE}/auth/login`;
