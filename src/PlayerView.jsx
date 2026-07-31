@@ -220,7 +220,15 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
       } catch (err) {
         if (isMounted) {
           console.warn('YummyAnime API load error:', err.message);
-          setStreamError(`Ошибка загрузки данных YummyAnime: ${err.message}`);
+          let errorMsg = 'Ошибка загрузки данных YummyAnime.';
+          if (err.message.includes('401') || err.message.includes('403') || err.message.includes('expired token')) {
+            errorMsg = 'Токен API недействителен (401/403). Проверьте VITE_YUMMY_APP_TOKEN в .env';
+          } else if (err.message.includes('timeout')) {
+            errorMsg = 'Ошибка сети / timeout при подключении к YummyAnime';
+          } else if (err.message.includes('HTTP error')) {
+            errorMsg = `Ошибка сервера YummyAnime (${err.message})`;
+          }
+          setStreamError(errorMsg);
           setIsYummyLoading(false);
         }
       }

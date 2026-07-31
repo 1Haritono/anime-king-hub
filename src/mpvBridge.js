@@ -12,10 +12,23 @@ export class MpvPlayerBridge {
 
   // C14: Launch mpv child process with JSON IPC (Electron / Desktop)
   loadUrl(url) {
+    if (!url) return;
+    
+    const isDirectMedia = (
+      url.endsWith('.m3u8') || url.endsWith('.mp4') || url.endsWith('.mpd') || url.endsWith('.webm') ||
+      url.includes('.m3u8?') || url.includes('.mp4?') || url.includes('type=direct')
+    );
+
+    if (!isDirectMedia) {
+      console.warn('[mpvBridge] URL is HTML embed page, skipping MPV spawn:', url);
+      return;
+    }
+
     if (this.isConnected && this.client) {
-      this.sendCommand(['loadfile', url]);
+      this.sendCommand('loadfile', [url]);
     } else {
-      console.log('[MPV Bridge] loadUrl called:', url);
+      console.log('[MPV Bridge] Spawning MPV for direct media stream:', url);
+      this.spawnMpv(url);
     }
   }
 

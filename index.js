@@ -12,6 +12,7 @@ function createWindow() {
     title: 'Anime King Hub',
     autoHideMenuBar: true,
     webPreferences: {
+      // TODO: Migrate nodeIntegration and contextIsolation to a secure contextBridge preload.js script in future releases
       nodeIntegration: true,
       contextIsolation: false
     }
