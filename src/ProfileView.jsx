@@ -12,9 +12,12 @@ export default function ProfileView({ onPlaySample }) {
   const [showPassword, setShowPassword] = useState(false);
   const [analytics, setAnalytics] = useState(getProfileAnalytics());
 
+  const [anixartSession, setAnixartSession] = useState(localStorage.getItem('anixart_session'));
+
   useEffect(() => {
     setAnalytics(getProfileAnalytics());
-  }, []);
+    setAnixartSession(localStorage.getItem('anixart_session'));
+  }, [showManualLoginModal, isLoggedIn]);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '187218477596-9u9jddqafjcgcjleal4hj8jjq3de4nfs.apps.googleusercontent.com';
 
@@ -32,11 +35,19 @@ export default function ProfileView({ onPlaySample }) {
     loginUser('Google_User', 'google');
   };
 
-  const handleManualLoginSubmit = (e) => {
+  const handleManualLoginSubmit = async (e) => {
     e.preventDefault();
-    if (manualUsername) {
-      loginUser(manualUsername, 'manual');
-      setShowManualLoginModal(false);
+    if (manualUsername && manualPassword) {
+      try {
+        const { loginAnixart } = await import('./anixartApi');
+        const { pullFromAnixart } = await import('./listSyncService');
+        await loginAnixart(manualUsername, manualPassword);
+        await pullFromAnixart();
+        loginUser(manualUsername, 'manual');
+        setShowManualLoginModal(false);
+      } catch (err) {
+        alert(`Ошибка входа Anixart: ${err.message}`);
+      }
     }
   };
 
@@ -88,12 +99,12 @@ export default function ProfileView({ onPlaySample }) {
                 {isLoggedIn ? '● Онлайн • Сессия сохранена' : 'Локальный профиль пользователя'}
               </span>
               <span style={{
-                backgroundColor: localStorage.getItem('anixart_session') ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
-                color: localStorage.getItem('anixart_session') ? '#4CAF50' : '#FF5252',
-                border: `1px solid ${localStorage.getItem('anixart_session') ? 'rgba(76, 175, 80, 0.4)' : 'rgba(244, 67, 54, 0.4)'}`,
+                backgroundColor: anixartSession ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
+                color: anixartSession ? '#4CAF50' : '#FF5252',
+                border: `1px solid ${anixartSession ? 'rgba(76, 175, 80, 0.4)' : 'rgba(244, 67, 54, 0.4)'}`,
                 padding: '2px 8px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800
               }}>
-                Сессия Anixart: {localStorage.getItem('anixart_session') ? 'Активна' : 'Неактивна'}
+                Сессия Anixart: {anixartSession ? 'Активна' : 'Неактивна'}
               </span>
             </div>
           </div>
