@@ -383,7 +383,7 @@ export default function ProfileView({ onPlaySample }) {
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}
                   >
-                    {showPassword ? <EyeOff size={18} color="var(--text-muted)" /> : <Eye size={18} color="var(--text-muted)" />}
+                    {showPassword ? <Eye size={18} color="var(--text-muted)" /> : <EyeOff size={18} color="var(--text-muted)" />}
                   </button>
                 </div>
               </div>

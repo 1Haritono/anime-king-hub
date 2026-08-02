@@ -727,14 +727,28 @@ function MainAppContent() {
   const startDownloadUpdate = () => {
     if (window.require) {
       const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('start-download-update');
+      ipcRenderer.send('updater:download');
     }
   };
 
-  const installUpdateNow = () => {
+  const handleMinimize = () => {
     if (window.require) {
       const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('quit-and-install-update');
+      ipcRenderer.send('window:minimize');
+    }
+  };
+
+  const handleMaximize = () => {
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.send('window:maximize');
+    }
+  };
+
+  const handleClose = () => {
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.send('window:close');
     }
   };
 
@@ -859,25 +873,108 @@ function MainAppContent() {
       {/* Main Workspace */}
       <div className="app-root" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* Header Bar */}
-        <header className="app-header" style={{ height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', userSelect: 'none' }}>
+        {/* Header Bar — Drag Region & Single Titlebar Controls (AnixApp Pattern) */}
+        <header className="app-header" style={{ height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', userSelect: 'none', WebkitAppRegion: 'drag' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Anime King Hub — Desktop Application</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', WebkitAppRegion: 'no-drag' }}>
             
-            {/* FEATURE-13: In-App Auto-Updater Button (Strict UI rule: Only visible when update is available/downloading/downloaded) */}
-            {updaterState.status === 'downloading' ? (
-              <span className="update-btn-toolbar" style={{ backgroundColor: 'var(--bg-surface)' }}>
-                <Loader2 size={12} className="spin-icon" /> Скачивание... {updaterState.percent}%
+            {/* Auto-Updater Pill Button (AnixApp Pattern) */}
+            {updaterState.status === 'available' && (
+              <button
+                onClick={startDownloadUpdate}
+                className="update-btn-toolbar"
+                title={`Доступна версия ${updaterState.version || ''}. Нажмите для загрузки.`}
+                style={{
+                  position: 'relative',
+                  backgroundColor: 'rgba(244, 67, 54, 0.15)',
+                  color: '#FF5252',
+                  border: '1px solid rgba(244, 67, 54, 0.4)',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Download size={14} color="#FF5252" />
+                <span>Обновить до {updaterState.version}</span>
+                <span style={{
+                  width: '6px', height: '6px', backgroundColor: '#FF5252', borderRadius: '50%',
+                  position: 'absolute', top: '4px', right: '4px'
+                }} />
+              </button>
+            )}
+
+            {updaterState.status === 'downloading' && (
+              <span
+                className="update-btn-toolbar"
+                style={{
+                  backgroundColor: 'rgba(30, 136, 229, 0.2)',
+                  color: '#64B5F6',
+                  border: '1px solid rgba(30, 136, 229, 0.4)',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Download size={14} color="#64B5F6" className="spin-pulse" />
+                <span>{updaterState.percent || 0}%</span>
               </span>
-            ) : updaterState.status === 'downloaded' ? (
-              <button onClick={installUpdateNow} className="update-btn-toolbar" style={{ backgroundColor: '#4CAF50', color: '#FFF' }}>
-                <RefreshCw size={12} /> Установить и перезапустить
+            )}
+
+            {updaterState.status === 'downloaded' && (
+              <button
+                onClick={() => {
+                  if (window.require) {
+                    const { ipcRenderer } = window.require('electron');
+                    ipcRenderer.send('quit-and-install-update');
+                  }
+                }}
+                className="update-btn-toolbar"
+                style={{
+                  backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                  color: '#4CAF50',
+                  border: '1px solid rgba(76, 175, 80, 0.4)',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Download size={14} color="#4CAF50" />
+                <span>Установить</span>
               </button>
-            ) : updaterState.status === 'available' ? (
-              <button onClick={startDownloadUpdate} className="update-btn-toolbar">
-                <DownloadCloud size={12} /> Скачать {updaterState.version || ''}
-              </button>
-            ) : null}
+            )}
+
+            {updaterState.status === 'installing' && (
+              <span
+                style={{
+                  backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                  color: '#81C784',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Loader2 size={14} className="spin-icon" />
+                <span>Установка…</span>
+              </span>
+            )}
 
             <button className="icon-btn" onClick={() => setIsWatchPartyOpen(true)} title="Watch Party"><Users size={16} color={isWatchPartyOpen ? '#D4AF37' : 'var(--text-secondary)'} /></button>
             <button className="icon-btn" onClick={() => navigateTo('schedule')} title="Расписание"><Calendar size={16} color={activeNav === 'schedule' && !selectedAnime ? '#D4AF37' : 'var(--text-secondary)'} /></button>
@@ -885,9 +982,9 @@ function MainAppContent() {
             <button className="icon-btn" onClick={() => navigateTo('profile')} title="Профиль"><User size={16} color={activeNav === 'profile' && !selectedAnime ? '#D4AF37' : 'var(--text-secondary)'} /></button>
             <button className="icon-btn" onClick={() => navigateTo('settings')} title="Настройки"><Settings size={16} color={activeNav === 'settings' && !selectedAnime ? '#D4AF37' : 'var(--text-secondary)'} /></button>
             <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-subtle)' }} />
-            <button className="win-ctrl-btn"><Minus size={14} color="var(--text-secondary)" /></button>
-            <button className="win-ctrl-btn"><Square size={12} color="var(--text-secondary)" /></button>
-            <button className="win-ctrl-btn close-btn"><X size={14} color="var(--text-secondary)" /></button>
+            <button className="win-ctrl-btn" onClick={handleMinimize} title="Свернуть"><Minus size={14} color="var(--text-secondary)" /></button>
+            <button className="win-ctrl-btn" onClick={handleMaximize} title="Развернуть"><Square size={12} color="var(--text-secondary)" /></button>
+            <button className="win-ctrl-btn close-btn" onClick={handleClose} title="Закрыть"><X size={14} color="var(--text-secondary)" /></button>
           </div>
         </header>
 

@@ -3,6 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
+// Bypass SSL Certificate verification errors for anixart.tv (net::ERR_CERT_COMMON_NAME_INVALID)
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  if (url.includes('anixart') || url.includes('anixart.tv')) {
+    event.preventDefault();
+    callback(true);
+  } else {
+    callback(false);
+  }
+});
+
 let mainWindow = null;
 
 function createWindow() {
@@ -11,6 +21,7 @@ function createWindow() {
     height: 800,
     backgroundColor: '#000000',
     title: 'Anime King Hub',
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       // TODO: Migrate nodeIntegration and contextIsolation to a secure contextBridge preload.js script in future releases
@@ -197,7 +208,17 @@ ipcMain.on('start-download-update', () => {
   });
 });
 
+ipcMain.on('updater:download', () => {
+  autoUpdater.downloadUpdate().catch(err => {
+    if (mainWindow) mainWindow.webContents.send('updater-status', { status: 'error', error: err.message });
+  });
+});
+
 ipcMain.on('quit-and-install-update', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.on('updater:install', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
@@ -205,24 +226,57 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
-// Anixart Main Process Session & IPC Bridge (AnixApp Pattern)
+ipcMain.on('window:minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.on('window:maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.on('window:close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
+// Anixart Main Process Session & IPC Bridge (AnixApp Pattern 2026-08-02)
 let anixartSessionToken = null;
+const ANIXART_PRIMARY = 'https://api-s.anixsekai.com';
+const ANIXART_FALLBACK = 'https://api.anixsekai.com';
+const ANIXART_USER_AGENT = 'AnixartApp/9.0 BETA 7-25082901 (Android 9; SDK 28; x86_64; ROG ASUS AI2201_B; ru)';
 
 ipcMain.handle('anix:login', async (event, { login, password }) => {
-  try {
-    const response = await net.fetch('https://api.anixart.tv/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'AnixartAndroid/8.1' },
-      body: JSON.stringify({ login, password })
-    });
-    if (!response.ok) throw new Error('Неверный логин или пароль Anixart');
-    const data = await response.json();
-    anixartSessionToken = data.token || data.token_session;
-    return { success: true, token: anixartSessionToken, user: data.user || { username: login } };
-  } catch (err) {
-    console.warn('[Anixart Main IPC] Login failed:', err.message);
-    return { success: false, error: err.message };
+  const bodyStr = `login=${encodeURIComponent(login)}&password=${encodeURIComponent(password)}`;
+
+  for (const baseUrl of [ANIXART_PRIMARY, ANIXART_FALLBACK]) {
+    try {
+      const response = await net.fetch(`${baseUrl}/auth/signIn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': ANIXART_USER_AGENT
+        },
+        body: bodyStr
+      });
+      const data = await response.json();
+      if (data && (data.code === 0 || data.profileToken || data.token)) {
+        const token = data.profileToken?.token || data.token || data.token_session;
+        if (token) {
+          anixartSessionToken = token;
+          console.log(`[Anixart IPC] Login successful via ${baseUrl}`);
+          return { success: true, token, user: data.profile || data.user || { username: login } };
+        }
+      }
+    } catch (err) {
+      console.warn(`[Anixart IPC Login] Mirror ${baseUrl} failed:`, err.message);
+    }
   }
+  return { success: false, error: 'Неверный логин или пароль Anixart или недоступен сервер' };
 });
 
 ipcMain.handle('anix:logout', () => {
@@ -236,12 +290,19 @@ ipcMain.handle('anix:getAuthStatus', () => {
 
 ipcMain.handle('anix:selfProfile', async () => {
   if (!anixartSessionToken) return null;
-  try {
-    const res = await net.fetch('https://api.anixart.tv/profile/me', {
-      headers: { 'Authorization': `Bearer ${anixartSessionToken}`, 'User-Agent': 'AnixartAndroid/8.1' }
-    });
-    if (res.ok) return await res.json();
-  } catch (e) {}
+  for (const baseUrl of [ANIXART_PRIMARY, ANIXART_FALLBACK]) {
+    try {
+      const res = await net.fetch(`${baseUrl}/profile/me`, {
+        headers: {
+          'Authorization': `Bearer ${anixartSessionToken}`,
+          'User-Agent': ANIXART_USER_AGENT
+        }
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn(`[Anixart IPC selfProfile] Failed on ${baseUrl}:`, e.message);
+    }
+  }
   return null;
 });
 

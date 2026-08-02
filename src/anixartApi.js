@@ -1,7 +1,9 @@
 // Anixart Unofficial API Service (Private Mobile Endpoints & OpenAnix Contract)
 import { ipcFetch } from './yummyApi';
 
-const ANIXART_BASE = 'https://api.anixart.tv';
+const ANIXART_PRIMARY = 'https://api-s.anixsekai.com';
+const ANIXART_FALLBACK = 'https://api.anixsekai.com';
+const ANIXART_USER_AGENT = 'AnixartApp/9.0 BETA 7-25082901 (Android 9; SDK 28; x86_64; ROG ASUS AI2201_B; ru)';
 const ANIXART_TOKEN_KEY = 'anixart_session';
 
 export const USE_ANIXART_MOCK = false;
@@ -41,34 +43,31 @@ export async function loginAnixart(login, password) {
     }
   }
 
-  const endpoint = `${ANIXART_BASE}/auth/login`;
-  try {
-    const res = await ipcFetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'AnixartAndroid/8.1'
-      },
-      body: JSON.stringify({ login, password })
-    });
+  const bodyStr = `login=${encodeURIComponent(login)}&password=${encodeURIComponent(password)}`;
+  for (const baseUrl of [ANIXART_PRIMARY, ANIXART_FALLBACK]) {
+    try {
+      const res = await ipcFetch(`${baseUrl}/auth/signIn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': ANIXART_USER_AGENT
+        },
+        body: bodyStr
+      });
 
-    if (res.status === 401 || res.status === 403) {
-      throw new Error('Неверный логин или пароль Anixart');
-    }
-
-    if (res.ok) {
-      const data = typeof res.json === 'function' ? await res.json() : JSON.parse(res.data);
-      const token = data.token || data.token_session || data.code;
-      if (token) {
-        setAnixartToken(token);
-        return { success: true, token, user: data.user || { username: login } };
+      if (res.ok) {
+        const data = typeof res.json === 'function' ? await res.json() : JSON.parse(res.data);
+        const token = data.profileToken?.token || data.token || data.token_session;
+        if (token) {
+          setAnixartToken(token);
+          return { success: true, token, user: data.profile || data.user || { username: login } };
+        }
       }
+    } catch (err) {
+      console.warn(`[Anixart API] Mirror ${baseUrl} failed:`, err.message);
     }
-    throw new Error(`Ошибка авторизации Anixart (${res.status})`);
-  } catch (err) {
-    console.warn('[Anixart API] login failed:', err.message);
-    throw err;
   }
+  throw new Error('Неверный логин или пароль Anixart');
 }
 
 export async function getAnixartProfile() {
@@ -85,35 +84,37 @@ export async function getAnixartProfile() {
     };
   }
 
-  const endpoint = `${ANIXART_BASE}/profile/me`;
-  try {
-    const res = await ipcFetch(endpoint, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'User-Agent': 'AnixartAndroid/8.1'
+  for (const baseUrl of [ANIXART_PRIMARY, ANIXART_FALLBACK]) {
+    try {
+      const res = await ipcFetch(`${baseUrl}/profile/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': ANIXART_USER_AGENT
+        }
+      });
+
+      if (res.status === 401) {
+        console.warn('[Anixart API] Session expired, re-login required');
+        setAnixartToken(null);
+        throw new Error('Сессия Anixart истекла. Нужен re-login');
       }
-    });
 
-    if (res.status === 401) {
-      console.warn('[Anixart API] Session expired, re-login required');
-      setAnixartToken(null);
-      throw new Error('Сессия Anixart истекла. Нужен re-login');
+      if (res.ok) {
+        const data = typeof res.json === 'function' ? await res.json() : JSON.parse(res.data);
+        const profile = data.profile || data.user || data;
+        return {
+          id: profile.id,
+          username: profile.username || profile.login || 'Пользователь Anixart',
+          avatarUrl: profile.avatar || profile.avatar_url || '',
+          registerDate: profile.register_date || '2023',
+          friendsCount: profile.friends_count || 0,
+          stats: profile.stats || { watching: 0, planned: 0, completed: 0, onHold: 0, dropped: 0 }
+        };
+      }
+    } catch (err) {
+      if (err.message.includes('истекла')) throw err;
+      console.warn(`[Anixart API] Mirror ${baseUrl} failed:`, err.message);
     }
-
-    if (res.ok) {
-      const data = typeof res.json === 'function' ? await res.json() : JSON.parse(res.data);
-      const profile = data.profile || data.user || data;
-      return {
-        id: profile.id,
-        username: profile.username || profile.login || 'Пользователь Anixart',
-        avatarUrl: profile.avatar || profile.avatar_url || '',
-        registerDate: profile.register_date || '2023',
-        friendsCount: profile.friends_count || 0,
-        stats: profile.stats || { watching: 0, planned: 0, completed: 0, onHold: 0, dropped: 0 }
-      };
-    }
-  } catch (err) {
-    console.warn('[Anixart API] getProfile failed:', err.message);
   }
   return null;
 }
