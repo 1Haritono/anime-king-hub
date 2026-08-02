@@ -1,5 +1,6 @@
 const { app, BrowserWindow, session, ipcMain, net } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow = null;
@@ -15,6 +16,28 @@ function createWindow() {
       // TODO: Migrate nodeIntegration and contextIsolation to a secure contextBridge preload.js script in future releases
       nodeIntegration: true,
       contextIsolation: false
+    }
+  });
+
+  // Handle did-fail-load for friendly error UI instead of pure black screen
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    if (validatedURL.includes('localhost:5173')) {
+      console.error('[Electron] Vite dev server не запущен на http://localhost:5173. Запусти «npm run dev» или используй «npm start».');
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head><meta charset="UTF-8"><title>Anime King Hub — Ошибка загрузки</title></head>
+          <body style="background:#000; color:#FF85A2; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:20px;">
+            <h2 style="color:#D4AF37; font-size:1.5rem; margin-bottom:12px;">⚠️ Ошибка загрузки интерфейса</h2>
+            <p style="color:#EEE; max-width:500px; font-size:0.95rem; line-height:1.5;">Vite dev server не запущен на <b>http://localhost:5173</b> и отсутствует собранная папка <b>dist/</b>.</p>
+            <div style="background:#141414; border:1px solid #5C061C; border-radius:8px; padding:12px 20px; font-family:monospace; color:#D4AF37; margin:16px 0;">
+              npm start
+            </div>
+            <p style="color:#AAA; font-size:0.85rem;">Запустите «npm start» или «npm run dev» для старта сервера и перезапустите Electron.</p>
+          </body>
+        </html>
+      `;
+      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch(() => {});
     }
   });
 
@@ -78,9 +101,13 @@ function createWindow() {
     }
   );
 
-  if (process.env.NODE_ENV === 'development') {
+  const distExists = fs.existsSync(path.join(__dirname, 'dist/index.html'));
+  const isDev = process.env.NODE_ENV === 'development' || !distExists;
+
+  if (isDev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
     mainWindow.loadURL('http://localhost:5173').catch(() => {
-      mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+      console.error('[Electron] Vite dev server не запущен на http://localhost:5173. Запусти «npm run dev» или используй «npm start».');
     });
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
