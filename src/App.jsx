@@ -3,7 +3,7 @@ import {
   Home, Compass, Flame, BookOpen, Bookmark, Download,
   Search, Users, Calendar, Bell, Settings, User,
   Minus, Square, X, Crown, Star, DownloadCloud, ExternalLink, Loader2,
-  Award, RefreshCw
+  Award, RefreshCw, Newspaper
 } from 'lucide-react';
 import SettingsView from './SettingsView';
 import AnimeDetailView from './AnimeDetailView';

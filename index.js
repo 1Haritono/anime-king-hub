@@ -19,6 +19,10 @@ function createWindow() {
     }
   });
 
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer Console] ${message} (${sourceId}:${line})`);
+  });
+
   // Handle did-fail-load for friendly error UI instead of pure black screen
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     if (validatedURL.includes('localhost:5173')) {
