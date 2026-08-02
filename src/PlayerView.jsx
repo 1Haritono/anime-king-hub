@@ -4,6 +4,17 @@ import {
 } from 'lucide-react';
 import { fetchYummyAnimeDetails, parseYummyVideos, ipcFetch } from './yummyApi';
 import { logEpisodeWatch, savePlaybackPosition, getPlaybackPosition } from './watchHistoryService';
+import { resolveYummyId } from './idMappingService';
+
+export const AdSlot = {
+  getPreroll: () => {
+    try {
+      const customAd = localStorage.getItem('internal_preroll_ad');
+      if (customAd) return JSON.parse(customAd);
+    } catch (e) {}
+    return null; // Returns null by default -> no internal ad
+  }
+};
 
 
 export default function PlayerView({ anime, onBack, mpvBridge }) {
@@ -533,21 +544,30 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
           </div>
         ) : (
           <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            <iframe
-              key={activeStreamUrl}
-              src={activeStreamUrl}
-              title="Anime Video Stream"
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              allowFullScreen
-              allow="autoplay; encrypted-media; picture-in-picture"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-              onError={() => {
-                console.warn('[Player Iframe Error] Triggering fallback chain...');
-                handleTriggerFallbackChain();
-              }}
-            />
+            {activeStreamUrl.match(/\.(mp4|m3u8|mpd)(\?|$)/i) ? (
+              <video
+                src={activeStreamUrl}
+                controls
+                autoPlay
+                style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+              />
+            ) : (
+              <iframe
+                key={activeStreamUrl}
+                src={activeStreamUrl}
+                title="Anime Video Stream"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                allowFullScreen
+                allow="autoplay; encrypted-media; picture-in-picture"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                onError={() => {
+                  console.warn('[Player Iframe Error] Triggering fallback chain...');
+                  handleTriggerFallbackChain();
+                }}
+              />
+            )}
 
-            {/* Anime King Hub Internal Ad Slot Banner */}
+            {/* Anime King Hub Internal Ad Slot Banner Overlay */}
             <div style={{
               position: 'absolute', bottom: '12px', right: '16px',
               backgroundColor: 'rgba(18, 18, 18, 0.85)', border: '1px solid var(--border-burgundy)',

@@ -18,6 +18,39 @@ function createWindow() {
     }
   });
 
+  // 5.1 AdBlock: Block ad & tracker hosts in Electron session
+  const AD_BLOCK_DOMAINS = [
+    'doubleclick.net',
+    'googlesyndication.com',
+    'adservice.google.com',
+    'adfox.ru',
+    'mytarget.com',
+    'yandex.ru/ads',
+    'an.yandex.ru',
+    'popunder',
+    'clickunder',
+    'adsterra',
+    'exoclick',
+    'bet365',
+    '1xbet',
+    'mostbet',
+    'warface',
+    'adriver.ru'
+  ];
+
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: ['<all_urls>'] },
+    (details, callback) => {
+      const url = details.url || '';
+      const isAd = AD_BLOCK_DOMAINS.some(domain => url.toLowerCase().includes(domain));
+      if (isAd) {
+        console.log(`[AdBlock] Blocked URL: ${url}`);
+        return callback({ cancel: true });
+      }
+      callback({});
+    }
+  );
+
   // Inject Referer header for shikimori.one, YummyAnime, Kodik, Alloha, VK, etc.
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: [

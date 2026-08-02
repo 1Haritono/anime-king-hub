@@ -85,6 +85,26 @@ export default function SettingsView({ isMpvConnected = false, themeMode = 'amol
               </div>
 
             </div>
+
+            {/* Ad Block Toggle 5.5 */}
+            <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    🛡️ Блокировать рекламу в плеере
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Фильтрация трекеров, всплывающих окон и сторонней рекламы (Kodik/Alloha) по умолчанию включена.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  defaultChecked={localStorage.getItem('block_player_ads') !== 'false'}
+                  onChange={(e) => localStorage.setItem('block_player_ads', e.target.checked ? 'true' : 'false')}
+                  style={{ width: '20px', height: '20px', accentColor: '#D4AF37', cursor: 'pointer' }}
+                />
+              </div>
+            </div>
           </div>
         )}
 
