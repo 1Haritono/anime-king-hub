@@ -35,8 +35,9 @@ export async function fetchYummyAnimeDetails(animeId, needVideos = true) {
   try {
     const fetchPromise = ipcFetch(targetUrl, {
       headers: {
-        'Accept': 'application/json',
-        'X-Application': YUMMY_APP_TOKEN
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN,
+        'Lang': 'ru'
       }
     });
 
@@ -100,8 +101,9 @@ export async function fetchYummyAnimeList({ page = 1, search = '', order = 'popu
   try {
     const res = await ipcFetch(targetUrl, {
       headers: {
-        'Accept': 'application/json',
-        'X-Application': YUMMY_APP_TOKEN
+        'Accept': 'application/json, image/avif, image/webp',
+        'X-Application': YUMMY_APP_TOKEN,
+        'Lang': 'ru'
       }
     });
 
