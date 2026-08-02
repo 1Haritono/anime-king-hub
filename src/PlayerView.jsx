@@ -567,6 +567,51 @@ export default function PlayerView({ anime, onBack, mpvBridge }) {
               />
             )}
 
+            {/* Skip OP / ED Floating Overlay Controls */}
+            <div style={{
+              position: 'absolute', bottom: '16px', left: '16px',
+              display: 'flex', gap: '8px', zIndex: 60
+            }}>
+              <button
+                onClick={() => {
+                  showToast('Пропущено 85 сек. (Skip OP)');
+                  if (mpvBridge && mpvBridge.seek) {
+                    mpvBridge.seek(85);
+                  } else {
+                    const videoEl = document.querySelector('video');
+                    if (videoEl) videoEl.currentTime += 85;
+                  }
+                }}
+                className="btn-gold"
+                style={{
+                  padding: '6px 14px', fontSize: '0.78rem', fontWeight: 800,
+                  borderRadius: '20px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                ⏩ Пропустить опенинг (+85s)
+              </button>
+              <button
+                onClick={() => {
+                  showToast('Пропущено 90 сек. (Skip ED)');
+                  if (mpvBridge && mpvBridge.seek) {
+                    mpvBridge.seek(90);
+                  } else {
+                    const videoEl = document.querySelector('video');
+                    if (videoEl) videoEl.currentTime += 90;
+                  }
+                }}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFF',
+                  border: '1px solid rgba(255,255,255,0.3)', padding: '6px 14px',
+                  fontSize: '0.78rem', fontWeight: 800, borderRadius: '20px', cursor: 'pointer',
+                  backdropFilter: 'blur(4px)'
+                }}
+              >
+                ⏭️ Пропустить эндинг
+              </button>
+            </div>
+
             {/* Anime King Hub Internal Ad Slot Banner Overlay */}
             <div style={{
               position: 'absolute', bottom: '12px', right: '16px',
