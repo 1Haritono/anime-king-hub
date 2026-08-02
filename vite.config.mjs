@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), svelte()],
   server: {
     proxy: {
       '/yani-api': {
@@ -18,4 +19,3 @@ export default defineConfig({
     }
   }
 })
-
