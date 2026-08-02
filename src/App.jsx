@@ -912,7 +912,9 @@ function MainAppContent() {
               <span
                 className="update-btn-toolbar"
                 style={{
-                  backgroundColor: 'rgba(30, 136, 229, 0.2)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  backgroundColor: 'rgba(30, 136, 229, 0.15)',
                   color: '#64B5F6',
                   border: '1px solid rgba(30, 136, 229, 0.4)',
                   borderRadius: '16px',
@@ -924,8 +926,20 @@ function MainAppContent() {
                   gap: '6px'
                 }}
               >
-                <Download size={14} color="#64B5F6" className="spin-pulse" />
-                <span>{updaterState.percent || 0}%</span>
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0, left: 0, bottom: 0,
+                    width: `${updaterState.percent || 0}%`,
+                    backgroundColor: 'rgba(30, 136, 229, 0.35)',
+                    transition: 'width 0.3s ease',
+                    zIndex: 0
+                  }}
+                />
+                <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Download size={14} color="#64B5F6" className="spin-pulse" />
+                  <span>{updaterState.percent || 0}%</span>
+                </span>
               </span>
             )}
 
