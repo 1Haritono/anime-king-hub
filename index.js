@@ -18,7 +18,7 @@ function createWindow() {
     }
   });
 
-  // 5.1 AdBlock: Block ad & tracker hosts in Electron session
+  // 5.1 AdBlock: Block ad & tracker hosts in Electron session for HTTP/HTTPS requests
   const AD_BLOCK_DOMAINS = [
     'doubleclick.net',
     'googlesyndication.com',
@@ -39,7 +39,7 @@ function createWindow() {
   ];
 
   session.defaultSession.webRequest.onBeforeRequest(
-    { urls: ['<all_urls>'] },
+    { urls: ['http://*/*', 'https://*/*'] },
     (details, callback) => {
       const url = details.url || '';
       const isAd = AD_BLOCK_DOMAINS.some(domain => url.toLowerCase().includes(domain));
@@ -47,7 +47,7 @@ function createWindow() {
         console.log(`[AdBlock] Blocked URL: ${url}`);
         return callback({ cancel: true });
       }
-      callback({});
+      callback({ cancel: false });
     }
   );
 
@@ -79,7 +79,9 @@ function createWindow() {
   );
 
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173').catch(() => {
+      mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+    });
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
