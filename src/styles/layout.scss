@@ -1,0 +1,649 @@
+@use 'variables' as *;
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 3.25rem;
+  flex: 1;
+  min-height: 0;
+  flex-shrink: 0;
+  background: $color-surface;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0;
+  align-items: center;
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: center;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 0;
+  color: $color-text-muted;
+  text-decoration: none;
+  border-radius: $radius-sm;
+  transition: color $transition, background $transition;
+  background: none;
+  border: none;
+  cursor: pointer;
+
+  .icon {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    color: $color-text;
+    background: $color-surface-hover;
+  }
+
+  &--active {
+    color: $color-text;
+    background: $color-surface-hover;
+  }
+}
+
+.sidebar__bottom {
+  margin-top: auto;
+  padding: 0.35rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: center;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+// ——— Закреплённое избранное (пины, как в Spotify) ———
+.sidebar-pins {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0.2rem 0;
+  border-top: 1px solid color-mix(in srgb, $color-border 42%, transparent);
+}
+
+.sidebar-pins__scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.2rem 0;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.sidebar-pins__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.45rem;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity;
+
+  &--top {
+    top: 0;
+    background: linear-gradient(
+      to bottom,
+      $color-surface 0%,
+      color-mix(in srgb, $color-surface 88%, transparent) 38%,
+      color-mix(in srgb, $color-surface 35%, transparent) 72%,
+      transparent 100%
+    );
+  }
+
+  &--bottom {
+    bottom: 0;
+    background: linear-gradient(
+      to top,
+      $color-surface 0%,
+      color-mix(in srgb, $color-surface 88%, transparent) 38%,
+      color-mix(in srgb, $color-surface 35%, transparent) 72%,
+      transparent 100%
+    );
+  }
+}
+
+.sidebar-pins__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: $color-surface-hover;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  will-change: transform, opacity;
+  transition: box-shadow 0.22s ease, opacity 0.22s ease;
+
+  &:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+  }
+
+  &--active {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, $color-text 70%, transparent);
+  }
+}
+
+.sidebar-pins__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 4px;
+  image-rendering: auto;
+}
+
+.sidebar-pins__fallback {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: $color-text-muted;
+}
+
+.sidebar-pins__skel {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 10px;
+  background: $color-surface-hover;
+  flex-shrink: 0;
+  animation: sidebar-pins-pulse 1.2s ease-in-out infinite;
+}
+
+.sidebar-pins__preview {
+  position: fixed;
+  left: calc(3.25rem + 0.55rem);
+  z-index: 120;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-50%) translateX(-8px) scale(0.97);
+  transition:
+    opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0.26s;
+
+  &--visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%) translateX(0) scale(1);
+    pointer-events: auto;
+  }
+}
+
+.sidebar-pins__preview-card {
+  display: flex;
+  gap: 0.75rem;
+  width: 17.5rem;
+  padding: 0.65rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, $color-surface 94%, $color-bg);
+  border: 1px solid color-mix(in srgb, $color-border 75%, transparent);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.sidebar-pins__preview-poster {
+  flex-shrink: 0;
+  width: 4.6rem;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: $color-surface-hover;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.sidebar-pins__preview-poster-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: $color-text-muted;
+}
+
+.sidebar-pins__preview-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding-top: 0.1rem;
+}
+
+.sidebar-pins__preview-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: $color-text;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidebar-pins__preview-sub {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: $color-text-muted;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidebar-pins__preview-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, $color-text-muted 92%, $color-text);
+}
+
+.sidebar-pins__preview-status {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 500;
+  text-transform: lowercase;
+  color: $color-text;
+  background: color-mix(in srgb, $color-accent 22%, $color-surface-hover);
+}
+
+.sidebar-pins__preview-hint {
+  margin-top: auto;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, $color-text-muted 80%, transparent);
+}
+
+@keyframes sidebar-pins-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-pins__item {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+
+  }
+
+  .sidebar-pins__skel {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.sidebar__link--logout:hover {
+  color: $color-error;
+}
+
+.sidebar__link--social {
+  color: $color-text-muted;
+  opacity: 0.6;
+  transition: color $transition, background $transition, opacity $transition;
+
+  &:hover {
+    opacity: 1;
+    color: #5865f2; // Discord blue
+  }
+}
+
+.sidebar__link--admin:hover {
+  color: $color-accent;
+  opacity: 1;
+}
+
+.sidebar__link--boosty:hover {
+  color: #f15f2c; // Boosty orange
+}
+
+.sidebar-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 0;
+  z-index: 40;
+}
+
+.layout__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+$schedule-panel-width: 22rem;
+$profile-panel-width: 26rem;
+$schedule-panel-gap: 0.75rem;
+$schedule-ease: cubic-bezier(0.22, 1, 0.36, 1);
+$schedule-duration: 0.34s;
+
+.schedule-panel-wrap {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: width $schedule-duration $schedule-ease;
+  will-change: width;
+
+  &--open {
+    width: calc(#{$schedule-panel-width} + #{$schedule-panel-gap});
+    padding-right: $schedule-panel-gap;
+    padding-bottom: $schedule-panel-gap;
+  }
+
+  &--profile.schedule-panel-wrap--open {
+    width: calc(#{$profile-panel-width} + #{$schedule-panel-gap});
+  }
+}
+
+.schedule-panel-shell {
+  display: flex;
+  flex-direction: column;
+  width: $schedule-panel-width;
+  height: 100%;
+  min-height: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: $color-bg;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+
+  &--profile {
+    width: $profile-panel-width;
+  }
+}
+
+.sidebar-schedule {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: $color-bg;
+
+  .page.sidebar-schedule__page {
+    flex: 1;
+    min-height: 0;
+    --page-scrollbar-offset: 10px;
+    --page-scroll-padding: 0.85rem 0.85rem 1.25rem 1rem;
+    z-index: 1;
+  }
+
+  .page.sidebar-schedule__page .page__v-track {
+    z-index: 2;
+  }
+}
+
+.sidebar-schedule__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem 0.65rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid color-mix(in srgb, $color-border 55%, transparent);
+}
+
+.sidebar-schedule__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.sidebar-schedule__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: $color-text-muted;
+  cursor: pointer;
+
+  &:hover {
+    color: $color-text;
+    background: $color-surface-hover;
+  }
+}
+
+.sidebar-schedule__info {
+  position: relative;
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 2rem 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, $color-surface-hover 80%, $color-bg);
+  color: $color-text-muted;
+  font-size: 0.78rem;
+  line-height: 1.45;
+
+  p {
+    margin: 0;
+  }
+}
+
+.sidebar-schedule__info-dismiss {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: inline-flex;
+  padding: 0.2rem;
+  border: none;
+  background: none;
+  color: $color-text-muted;
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover {
+    color: $color-text;
+    background: $color-surface-hover;
+  }
+}
+
+.sidebar-schedule__status {
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  color: $color-text-muted;
+  font-size: 0.9rem;
+
+  p {
+    margin: 0 0 0.75rem;
+  }
+}
+
+.sidebar-schedule__retry {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid $color-border;
+  border-radius: 8px;
+  background: $color-surface;
+  color: $color-text;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sidebar-schedule__day + .sidebar-schedule__day {
+  margin-top: 1.1rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid color-mix(in srgb, $color-border 50%, transparent);
+}
+
+.sidebar-schedule__day-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.sidebar-schedule__today-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.sidebar-schedule__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem 0.45rem;
+}
+
+.sidebar-schedule__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+
+  &:hover .sidebar-schedule__poster {
+    opacity: 0.88;
+  }
+}
+
+.sidebar-schedule__poster {
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: $color-surface-hover;
+  transition: opacity $transition;
+
+  :global(img),
+  :global(.poster-image__fallback) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.sidebar-schedule__card-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidebar-schedule__card-ep {
+  font-size: 0.68rem;
+  color: $color-text-muted;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schedule-panel-wrap {
+    transition: none;
+  }
+}
+
+// ——— Закруглённое окно контента (стиль JB) ———
+.content-panel {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0 0.75rem 0.75rem 0;
+  background: $color-bg;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.25);
+}
+
+.content-panel__body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-panel__body .page {
+  border-radius: 0;
+}
+
+.layout__main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

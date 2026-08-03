@@ -1,0 +1,15 @@
+import 'flag-icons/css/flag-icons.min.css';
+import './styles/main.scss';
+import { mount } from 'svelte';
+import App from './App.svelte';
+import { initRendererLogging } from './services/logger';
+import { initWebAnixApi } from './services/anix-api-web';
+
+// Init renderer-side logging before anything else
+initRendererLogging();
+
+document.addEventListener('DOMContentLoaded', () => {
+  void initWebAnixApi().finally(() => {
+    mount(App, { target: document.getElementById('app')! });
+  });
+});

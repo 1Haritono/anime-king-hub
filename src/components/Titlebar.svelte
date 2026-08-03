@@ -1,187 +1,377 @@
 <script lang="ts">
-  import type { UpdaterState } from '../types/anixapp';
+  import { onMount } from 'svelte';
+  import { resolveCdnAssetUrl } from '../utils/posterUrl';
+  import { iconArrowLeft, iconArrowRight, iconSearch, iconUsers, iconBell, iconCalendar, iconUser, iconSettings, iconDownload } from './icons';
+  import { checkForUpdate, type UpdateInfo } from '../services/update-checker';
+  import type { AppUpdateProgress } from '../types/electron';
+  import { isAuthenticated } from '../stores/auth';
+  import { notificationUnreadCount, refreshNotificationUnreadCount } from '../stores/notifications';
 
-  export let updaterState: UpdaterState = { status: 'idle' };
+  const hasWindowApi = typeof (window as any).electron?.window !== 'undefined';
 
-  function startDownload() {
-    if (typeof window !== 'undefined' && window.require) {
-      const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('updater:download');
+  interface Props {
+    onLobby?: () => void;
+    onNotifications?: () => void;
+    onSchedule?: () => void;
+    scheduleOpen?: boolean;
+    onSettings?: () => void;
+    onProfile?: (event: MouseEvent) => void;
+    onSearchTab?: () => void;
+    searchTabActive?: boolean;
+  }
+
+  let {
+    onLobby,
+    onNotifications,
+    onSchedule,
+    scheduleOpen = false,
+    onSettings,
+    onProfile,
+    onSearchTab,
+    searchTabActive = false,
+  }: Props = $props();
+
+  let updateInfo: UpdateInfo | null = $state(null);
+  let updateDownloading = $state(false);
+  let updatePct = $state(0);
+  let updateState: 'idle' | 'downloading' | 'ready' | 'error' | 'installing' | 'install-error' = $state('idle');
+  let installType: string | null = $state(null);
+  let avatarUrl: string | null = $state(null);
+  let avatarInitials: string = $state('');
+  let hasUnreadNotifications = $state(false);
+  let appVersion = $state('');
+
+  function syncAvatarFromGlobalProfile() {
+    const profile = (window as any).__anixProfile;
+    avatarUrl = profile?.avatar ? resolveCdnAssetUrl(profile.avatar) : null;
+  }
+
+  async function loadAppVersion() {
+    try {
+      const versions = await window.electron?.getVersions?.();
+      const v = versions?.app || (await window.electron?.getAppVersion?.());
+      if (v) appVersion = String(v).replace(/^v/i, '');
+    } catch {
+      // ignore
     }
   }
 
-  function installUpdate() {
-    if (typeof window !== 'undefined' && window.require) {
-      const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('updater:install');
-    }
+  async function loadUpdateInfo() {
+    const currentVersion =
+      (await window.electron?.getVersions?.().then((v: any) => v?.app).catch(() => undefined))
+      ?? (await window.electron?.getAppVersion?.().catch(() => undefined));
+    if (!currentVersion) return;
+    const info = await checkForUpdate(String(currentVersion)).catch(() => null);
+    if (info) updateInfo = info;
   }
 
-  function minimizeWindow() {
-    if (typeof window !== 'undefined' && window.require) {
-      const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('window:minimize');
-    }
+  /** Человекочитаемая подпись кнопки установки для текущего типа пакета. */
+  function installLabel(): string {
+    if (installType === 'appimage') return 'Установить и перезапустить';
+    if (installType === 'pacman')   return 'Установить (Arch)';
+    if (installType === 'flatpak')  return 'Обновить (Flatpak)';
+    return 'Установить';
   }
 
-  function maximizeWindow() {
-    if (typeof window !== 'undefined' && window.require) {
-      const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('window:maximize');
-    }
+  /** Подсказка в тултипе кнопки "готово к установке". */
+  function installTooltip(): string {
+    if (installType === 'appimage') return 'Файл скачан — приложение заменится и перезапустится';
+    if (installType === 'pacman')   return 'Откроется окно pkexec (ввод пароля root)';
+    if (installType === 'flatpak')  return 'Запустится flatpak update';
+    return 'Откроется установщик пакета';
   }
 
-  function closeWindow() {
-    if (typeof window !== 'undefined' && window.require) {
-      const { ipcRenderer } = window.require('electron');
-      ipcRenderer.send('window:close');
+  onMount(() => {
+    syncAvatarFromGlobalProfile();
+    void loadAppVersion();
+
+    // Получаем тип установки для правильных подписей кнопки
+    window.electron?.getLinuxInstallType?.().then((t) => {
+      if (t) installType = t;
+    }).catch(() => {});
+
+    // Check for app updates
+    void loadUpdateInfo();
+
+    // App update progress listener
+    const onProgress = (ev: Event) => {
+      const data = (ev as CustomEvent<AppUpdateProgress>).detail;
+      // Синхронизируем тип установки из прогресс-события (если ещё не получен)
+      if (data.installType && !installType) installType = data.installType;
+      if (data.state === 'downloading') {
+        updatePct = data.total > 0 ? Math.round((data.received / data.total) * 100) : data.percent || 0;
+        updateState = 'downloading';
+      } else if (data.state === 'ready') {
+        updateState = 'ready';
+        updatePct = 100;
+        // Не устанавливаем автоматически — пользователь должен явно нажать кнопку.
+      } else if (data.state === 'error') {
+        updateState = 'error';
+        updateDownloading = false;
+      } else if (data.state === 'installing') {
+        // Ждём ввода пароля пользователем — показываем индикатор
+        updateState = 'installing';
+      } else if (data.state === 'install-error') {
+        // Пользователь отменил или установка упала — возвращаемся в ready
+        updateState = 'ready';
+        updateDownloading = false;
+      }
+    };
+    window.addEventListener('app-update-progress', onProgress);
+    window.addEventListener('anix:profileUpdated', syncAvatarFromGlobalProfile as EventListener);
+
+    const unsubUnread = notificationUnreadCount.subscribe((n) => {
+      hasUnreadNotifications = n > 0;
+    });
+    const unsubAuth = isAuthenticated.subscribe((ok) => {
+      if (ok) void refreshNotificationUnreadCount();
+      else notificationUnreadCount.set(0);
+    });
+    void refreshNotificationUnreadCount();
+    const unreadPoll = setInterval(() => {
+      void refreshNotificationUnreadCount();
+    }, 60_000);
+
+    return () => {
+      window.removeEventListener('app-update-progress', onProgress);
+      window.removeEventListener('anix:profileUpdated', syncAvatarFromGlobalProfile as EventListener);
+      unsubUnread();
+      unsubAuth();
+      clearInterval(unreadPoll);
+    };
+  });
+
+  function handleStartUpdate() {
+    if (updateState === 'ready') {
+      // Download done — now install
+      (window.electron as any)?.installUpdate?.();
+      return;
     }
+    if (updateDownloading || !updateInfo) return;
+    updateDownloading = true;
+    updateState = 'downloading';
+    updatePct = 0;
+    (window.electron as any)?.startUpdateDownload?.().catch(() => {
+      updateDownloading = false;
+      updateState = 'error';
+    });
   }
+
+  function handleBack() { window.history.back(); }
+  function handleForward() { window.history.forward(); }
+  function handleMinimize() { (window as any).electron?.window?.minimize(); }
+  function handleMaximize() { (window as any).electron?.window?.maximize(); }
+  function handleClose() { (window as any).electron?.window?.close(); }
+
 </script>
 
-<header className="titlebar-root">
-  <div className="title-label">Anime King Hub — Desktop Application</div>
+<div class="titlebar">
+  <div class="titlebar__drag">
+    <span class="titlebar__logo" aria-hidden="true">
+      <img src="logo/512x512.png" alt="" class="titlebar__logo-img" />
+    </span>
+    <div class="titlebar__brand" title={appVersion ? `AnixApp v${appVersion}` : 'AnixApp beta'}>
+      <span class="titlebar__title">AnixApp</span>
+      <span class="titlebar__beta">beta</span>
+      {#if appVersion}
+        <span class="titlebar__version">v{appVersion}</span>
+      {/if}
+    </div>
+  </div>
 
-  <div className="controls-group">
-    {#if updaterState.status === 'available'}
-      <button class="pill-btn pill-available" on:click={startDownload} title="Доступна новая версия">
-        <span>↓ Обновить до {updaterState.version || ''}</span>
-        <span class="red-dot"></span>
-      </button>
-    {:else if updaterState.status === 'downloading'}
-      <span class="pill-btn pill-downloading">
-        <div class="progress-bar" style="width: {updaterState.percent || 0}%"></div>
-        <span class="pill-text">↓ {updaterState.percent || 0}%</span>
-      </span>
-    {:else if updaterState.status === 'downloaded'}
-      <button class="pill-btn pill-ready" on:click={installUpdate}>
-        <span>↓ Установить</span>
-      </button>
-    {:else if updaterState.status === 'installing'}
-      <span class="pill-btn pill-installing">
-        <span>Установка…</span>
-      </span>
+  <div class="titlebar__nav" id="titlebar-nav">
+    <button
+      type="button"
+      class="titlebar__nav-btn tooltip-trigger"
+      id="titlebar-back"
+      aria-label="Назад"
+      onclick={handleBack}
+    >
+      {@html iconArrowLeft(16)}
+      <span class="tooltip tooltip--animated">Назад</span>
+    </button>
+    <button
+      type="button"
+      class="titlebar__nav-btn tooltip-trigger"
+      id="titlebar-forward"
+      aria-label="Вперёд"
+      onclick={handleForward}
+    >
+      {@html iconArrowRight(16)}
+      <span class="tooltip tooltip--animated">Вперёд</span>
+    </button>
+  </div>
+
+  <div class="titlebar__menu" id="titlebar-menu">
+    <!-- Update button -->
+    {#if updateInfo}
+      {#if updateState === 'downloading'}
+        <!-- Downloading: inline progress bar, no click -->
+        <button
+          type="button"
+          class="titlebar__menu-item titlebar__menu-item--update titlebar__menu-item--update-downloading"
+          aria-label="Загрузка обновления {updatePct}%"
+        >
+          <span class="titlebar__update-fill" style="width:{updatePct}%"></span>
+          {@html iconDownload(14)}
+          <span class="titlebar__update-label">{updatePct}%</span>
+        </button>
+      {:else if updateState === 'installing'}
+        <!-- Waiting for password input / install in progress -->
+        <button
+          type="button"
+          class="titlebar__menu-item titlebar__menu-item--update titlebar__menu-item--update-downloading tooltip-trigger"
+          aria-label="Установка обновления…"
+        >
+          <span class="titlebar__update-fill titlebar__update-fill--pulse" style="width:100%"></span>
+          {@html iconDownload(14)}
+          <span class="titlebar__update-label">Установка…</span>
+          <span class="tooltip tooltip--animated">Введите пароль в диалоге авторизации</span>
+        </button>
+      {:else if updateState === 'ready'}
+        <!-- Downloaded: click to install -->
+        <button
+          type="button"
+          class="titlebar__menu-item titlebar__menu-item--update titlebar__menu-item--update-downloading titlebar__menu-item--update-ready tooltip-trigger"
+          aria-label={installLabel()}
+          onclick={handleStartUpdate}
+        >
+          <span class="titlebar__update-fill" style="width:100%"></span>
+          {@html iconDownload(14)}
+          <span class="titlebar__update-label">{installLabel()}</span>
+          <span class="tooltip tooltip--animated">{installTooltip()}</span>
+        </button>
+      {:else}
+        <!-- Idle / error: click to start download -->
+        <button
+          type="button"
+          class="titlebar__menu-item titlebar__menu-item--update tooltip-trigger"
+          id="titlebar-update"
+          aria-label="Доступно обновление"
+          onclick={handleStartUpdate}
+        >
+          <span class="titlebar__update-icon">{@html iconDownload(18)}</span>
+          <span class="titlebar__update-dot" aria-hidden="true"></span>
+          <span class="tooltip tooltip--animated">
+            {updateState === 'error'
+              ? 'Ошибка загрузки. Нажмите для повтора'
+              : `Доступна версия ${updateInfo.version}. Нажмите для загрузки.`}
+          </span>
+        </button>
+      {/if}
     {/if}
 
-    <div class="divider"></div>
+    <!-- Lobby -->
+    <button
+      type="button"
+      class="titlebar__menu-item tooltip-trigger"
+      id="titlebar-lobby"
+      aria-label="Совместный просмотр"
+      onclick={onLobby}
+    >
+      {@html iconUsers(18)}
+      <span class="tooltip tooltip--animated">Совместный просмотр</span>
+    </button>
 
-    <button class="win-btn" on:click={minimizeWindow} title="Свернуть">−</button>
-    <button class="win-btn" on:click={maximizeWindow} title="Развернуть">□</button>
-    <button class="win-btn close" on:click={closeWindow} title="Закрыть">×</button>
+    <!-- Schedule -->
+    <button
+      type="button"
+      class="titlebar__menu-item tooltip-trigger"
+      class:titlebar__menu-item--active={scheduleOpen}
+      id="titlebar-schedule"
+      aria-label="Расписание"
+      aria-expanded={scheduleOpen}
+      onclick={onSchedule}
+    >
+      {@html iconCalendar(18)}
+      <span class="tooltip tooltip--animated">Расписание</span>
+    </button>
+
+    <!-- Notifications -->
+    <button
+      type="button"
+      class="titlebar__menu-item tooltip-trigger"
+      class:titlebar__menu-item--has-badge={hasUnreadNotifications}
+      id="titlebar-notifications"
+      aria-label={hasUnreadNotifications ? 'Уведомления (есть новые)' : 'Уведомления'}
+      onclick={onNotifications}
+    >
+      {@html iconBell(18)}
+      {#if hasUnreadNotifications}
+        <span class="titlebar__notif-dot" aria-hidden="true"></span>
+      {/if}
+      <span class="tooltip tooltip--animated">Уведомления</span>
+    </button>
+
+    <!-- Profile -->
+    <button
+      type="button"
+      class="titlebar__menu-item titlebar__menu-item--avatar tooltip-trigger"
+      id="titlebar-profile"
+      aria-label="Профиль"
+      onclick={onProfile}
+    >
+      <span
+        class="titlebar__avatar {avatarUrl ? 'titlebar__avatar--image' : 'titlebar__avatar--placeholder'}"
+        style={avatarUrl ? `background-image:url(${avatarUrl})` : ''}
+      >
+        {#if !avatarUrl}{@html iconUser(18)}{/if}
+      </span>
+      <span class="tooltip tooltip--animated">Профиль</span>
+    </button>
+
+    <!-- Settings -->
+    <button
+      type="button"
+      class="titlebar__menu-item tooltip-trigger"
+      id="titlebar-settings"
+      aria-label="Настройки"
+      onclick={onSettings}
+    >
+      {@html iconSettings(18)}
+      <span class="tooltip tooltip--animated">Настройки</span>
+    </button>
+
+    <!-- Independent search tab -->
+    <button
+      type="button"
+      class="titlebar__menu-item tooltip-trigger"
+      class:titlebar__menu-item--active={searchTabActive}
+      aria-label="Поиск"
+      aria-current={searchTabActive ? 'page' : undefined}
+      onclick={onSearchTab}
+    >
+      {@html iconSearch(18)}
+      <span class="tooltip tooltip--animated">Поиск</span>
+    </button>
   </div>
-</header>
 
-<style>
-  .titlebar-root {
-    height: 36px;
-    background-color: var(--bg-surface, #0D0D0D);
-    border-bottom: 1px solid var(--border-subtle, #222222);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    user-select: none;
-    -webkit-app-region: drag;
-  }
-
-  .title-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-muted, #888888);
-  }
-
-  .controls-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    -webkit-app-region: no-drag;
-  }
-
-  .pill-btn {
-    position: relative;
-    border: none;
-    border-radius: 16px;
-    padding: 4px 12px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow: hidden;
-  }
-
-  .pill-available {
-    background-color: rgba(244, 67, 54, 0.15);
-    color: #FF5252;
-    border: 1px solid rgba(244, 67, 54, 0.4);
-  }
-
-  .pill-downloading {
-    background-color: rgba(30, 136, 229, 0.15);
-    color: #64B5F6;
-    border: 1px solid rgba(30, 136, 229, 0.4);
-  }
-
-  .pill-ready {
-    background-color: rgba(76, 175, 80, 0.2);
-    color: #4CAF50;
-    border: 1px solid rgba(76, 175, 80, 0.4);
-  }
-
-  .pill-installing {
-    background-color: rgba(76, 175, 80, 0.1);
-    color: #81C784;
-  }
-
-  .red-dot {
-    width: 6px;
-    height: 6px;
-    background-color: #FF5252;
-    border-radius: 50%;
-  }
-
-  .progress-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    background-color: rgba(30, 136, 229, 0.35);
-    transition: width 0.3s ease;
-    z-index: 0;
-  }
-
-  .pill-text {
-    position: relative;
-    z-index: 1;
-  }
-
-  .divider {
-    width: 1px;
-    height: 16px;
-    background-color: var(--border-subtle, #222222);
-  }
-
-  .win-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary, #CCCCCC);
-    font-size: 1rem;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .win-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .win-btn.close:hover {
-    background-color: #E53935;
-    color: #FFFFFF;
-  }
-</style>
+  {#if hasWindowApi}
+    <div class="titlebar__controls">
+      <button
+        type="button"
+        class="titlebar__btn titlebar__btn--min tooltip-trigger"
+        aria-label="Свернуть"
+        onclick={handleMinimize}
+      >
+        <span class="tooltip tooltip--animated">Свернуть</span>
+      </button>
+      <button
+        type="button"
+        class="titlebar__btn titlebar__btn--max tooltip-trigger"
+        aria-label="Развернуть"
+        onclick={handleMaximize}
+      >
+        <span class="tooltip tooltip--animated">Развернуть</span>
+      </button>
+      <button
+        type="button"
+        class="titlebar__btn titlebar__btn--close tooltip-trigger"
+        aria-label="Закрыть"
+        onclick={handleClose}
+      >
+        <span class="tooltip tooltip--animated">Закрыть</span>
+      </button>
+    </div>
+  {/if}
+</div>
