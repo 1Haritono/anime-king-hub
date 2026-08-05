@@ -23,7 +23,7 @@ export function getPairingCode(): string {
 }
 
 /**
- * Set a custom pairing code
+ * Set a custom pairing code and check for phone linkage
  */
 export function setPairingCode(newCode: string): boolean {
   const cleanCode = String(newCode).trim();
@@ -33,6 +33,25 @@ export function setPairingCode(newCode: string): boolean {
   }
   return false;
 }
+
+/**
+ * Check if a phone sent a link code to connect to this PC code
+ */
+export async function checkLinkedPhoneCode(): Promise<string | null> {
+  const myCode = getPairingCode();
+  try {
+    const res = await fetch(`${BASE_URL}/sync_linked_${myCode}?t=${Date.now()}`);
+    if (res.ok) {
+      const phoneCode = (await res.text()).trim();
+      if (phoneCode.length === 6 && /^\d+$/.test(phoneCode)) {
+        localStorage.setItem(STORAGE_KEY, phoneCode);
+        return phoneCode;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
 
 /**
  * Format seconds into MM:SS or HH:MM:SS

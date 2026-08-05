@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import Select from '../../../components/Select.svelte';
   import { API_ENDPOINT_OPTIONS, DEFAULT_API_ENDPOINT } from '../../../constants/apiEndpoints';
-  import { getPairingCode, setPairingCode } from '../../../services/syncService';
+  import { getPairingCode, setPairingCode, checkLinkedPhoneCode } from '../../../services/syncService';
 
   let currentEndpoint = $state('');
   let endpointLoaded = $state(false);
@@ -10,12 +10,22 @@
   type PingState = { ok: boolean; latencyMs: number | null };
   let pingState = $state<Record<string, PingState>>({});
   let pingInterval: ReturnType<typeof setInterval> | null = null;
+  let syncCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   // Cloud Sync state
   let pairingCode = $state('');
   let inputCode = $state('');
   let copied = $state(false);
   let syncMsg = $state('');
+
+  async function checkForPhoneLink() {
+    const linked = await checkLinkedPhoneCode();
+    if (linked) {
+      pairingCode = linked;
+      syncMsg = `📱 Телефон автоматически привязан! Код: ${linked}`;
+      setTimeout(() => syncMsg = '', 6000);
+    }
+  }
 
   async function loadEndpoint() {
     pairingCode = getPairingCode();
@@ -91,10 +101,13 @@
   onMount(() => {
     pairingCode = getPairingCode();
     void loadEndpoint();
+    void checkForPhoneLink();
+    syncCheckInterval = setInterval(() => void checkForPhoneLink(), 5000);
   });
 
   onDestroy(() => {
     if (pingInterval) clearInterval(pingInterval);
+    if (syncCheckInterval) clearInterval(syncCheckInterval);
   });
 </script>
 
